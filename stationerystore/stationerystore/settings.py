@@ -47,7 +47,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'store.apps.StoreConfig',
+    'ckeditor',
+    'ckeditor_uploader',
+    'rest_framework',
 ]
+
+CKEDITOR_UPLOAD_PATH = "ckeditors/descriptions/"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

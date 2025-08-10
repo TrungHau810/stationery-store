@@ -1,13 +1,22 @@
+from xmlrpc.client import DateTime
+
+from ckeditor.fields import RichTextField
 from cloudinary.models import CloudinaryField
+from django.conf.locale import de
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
-# Create your models here.
 class BaseModel(models.Model):
-    active = models.BooleanField(default=True)
     created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Active(models.Model):
+    active = models.BooleanField(default=True)
 
     class Meta:
         abstract = True
@@ -34,38 +43,95 @@ class User(AbstractUser):
         return self.username
 
 
-class Category(BaseModel):
+class Category(BaseModel, Active):
     name = models.CharField(max_length=150, null=False, unique=True)
     description = models.TextField(null=True)
 
+    class Meta:
+        def __str__(self):
+            return self.name
 
-class Product(BaseModel):
+
+class Product(BaseModel, Active):
     name = models.CharField(max_length=255, null=False)
-    description = models.TextField(null=True)
-    price = models.FloatField()
+    description = RichTextField(null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = CloudinaryField()
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    discount = models.ManyToManyField('Discount')
+
+    class Meta:
+        def __str__(self):
+            return self.name
 
 
 class Supplier(models.Model):
     name = models.CharField(max_length=255)
+    tax = models.CharField(max_length=13)
+    address = models.CharField(max_length=255)
 
+    class Meta:
+        def __str__(self):
+            return self.name
+
+
+class Status(models.TextChoices):
+    PENDING = "Đã đặt hàng",
+    PAID = "Đã thanh toán",
+    CANCELLED = "Đã huỷ"
 
 
 class Order(BaseModel):
     note = models.TextField(null=True)
+    status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    discount = models.ForeignKey('Discount', on_delete=models.SET_DEFAULT, default=1)
 
 
 class OrderDetail(models.Model):
     quantity = models.IntegerField()
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
 
+
+class GoodsReceipt(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
+
+
+class GoodsReceiptDetail(models.Model):
+    quantity = models.IntegerField(null=False, blank=False)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
 
 
 class Discount(BaseModel):
     code = models.CharField(max_length=50, null=False)
-    discount= models.IntegerField()
-    end_date= models.DateField(null=False)
+    discount = models.IntegerField()
+    start_date = models.DateTimeField(null=False)
+    end_date = models.DateTimeField(null=False)
+
+
+class Status(models.Choices):
+    PENDING = "Đã chờ"
+    SUCCESS = "Thành công"
+    FAIL = "Thất bại"
+
+
+class Method(models.Choices):
+    MOMO = "MoMo"
+    CASH = "Tiền mặt"
+    VNPAY = "VNPay"
+
+
+class Payment(BaseModel):
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
+    method = models.CharField(max_length=50, choices=Method, default=Method.CASH)
 
 
 class Review(BaseModel):
     rating = models.IntegerField()
     comment = models.TextField()
-
+    image = CloudinaryField()
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
