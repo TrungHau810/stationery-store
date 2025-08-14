@@ -1,8 +1,5 @@
-from xmlrpc.client import DateTime
-
 from ckeditor.fields import RichTextField
 from cloudinary.models import CloudinaryField
-from django.conf.locale import de
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -45,11 +42,14 @@ class User(AbstractUser):
 
 class Category(BaseModel, Active):
     name = models.CharField(max_length=150, null=False, unique=True)
-    description = models.TextField(null=True)
+    description = models.TextField(null=True, blank=True)
+    category_parent = models.ForeignKey('Category', on_delete=models.CASCADE,
+                                        related_name="category_children",
+                                        null=True,
+                                        blank=True)
 
-    class Meta:
-        def __str__(self):
-            return self.name
+    def __str__(self):
+        return self.name
 
 
 class Product(BaseModel, Active):
@@ -57,22 +57,23 @@ class Product(BaseModel, Active):
     description = RichTextField(null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     image = CloudinaryField()
+    quantity = models.IntegerField(null=False, blank=False)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    discount = models.ManyToManyField('Discount')
+    discount = models.ManyToManyField('Discount', null=True, blank=True)
+    brand = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True)
 
-    class Meta:
-        def __str__(self):
-            return self.name
+    def __str__(self):
+        return self.name
 
 
 class Supplier(models.Model):
     name = models.CharField(max_length=255)
-    tax = models.CharField(max_length=13)
+    logo = CloudinaryField()
+    number_phone = models.CharField(max_length=13)
     address = models.CharField(max_length=255)
 
-    class Meta:
-        def __str__(self):
-            return self.name
+    def __str__(self):
+        return self.name
 
 
 class Status(models.TextChoices):
@@ -85,7 +86,7 @@ class Order(BaseModel):
     note = models.TextField(null=True)
     status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    discount = models.ForeignKey('Discount', on_delete=models.SET_DEFAULT, default=1)
+    discount = models.ForeignKey('Discount', on_delete=models.SET_NULL, null=True, blank=True)
 
 
 class OrderDetail(models.Model):
@@ -127,6 +128,7 @@ class Payment(BaseModel):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
     method = models.CharField(max_length=50, choices=Method, default=Method.CASH)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
 
 
 class Review(BaseModel):
@@ -135,3 +137,14 @@ class Review(BaseModel):
     image = CloudinaryField()
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+
+class Conversation(BaseModel):
+    staff = models.ForeignKey(User, related_name="staff_conversation", on_delete=models.SET_NULL, null=True)
+    customer = models.ForeignKey(User, related_name="customer_conversation", on_delete=models.SET_NULL, null=True)
+
+
+class Message(BaseModel):
+    content = models.TextField(null=False)
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
