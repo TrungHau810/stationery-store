@@ -35,7 +35,9 @@ SECRET_KEY = 'django-insecure-bp-q4io*s4#^i+vtir#4$rw__%7-_va3)_epf1gx92afe%r%1d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Application definition
 
@@ -52,6 +54,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_yasg',
     'oauth2_provider',
+    "corsheaders",
 ]
 
 CKEDITOR_UPLOAD_PATH = "ckeditors/descriptions/"
@@ -65,6 +68,8 @@ REST_FRAMEWORK = {
 OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore'}
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -119,6 +124,19 @@ cloudinary.config(
     api_secret=os.getenv('api_secret'),
     secure=True
 )
+
+# Setting config send email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
+
+# Setting config for VNPay
+VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY')
+VNPAY_TMNCODE = os.getenv('VNPAY_TMNCODE')
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
