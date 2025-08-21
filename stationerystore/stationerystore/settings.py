@@ -137,6 +137,8 @@ DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
 # Setting config for VNPay
 VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY')
 VNPAY_TMNCODE = os.getenv('VNPAY_TMNCODE')
+VNPAY_URL = os.getenv('VNPAY_PAYMENT_URL')
+VNPAY_RETURN_URL = os.getenv('VNPAY_RETURN_URL')
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

@@ -7,7 +7,7 @@ from oauth2_provider.models import AccessToken
 
 from store import models
 from store.models import User, Category, Product, Discount, Order, Supplier, Review, Payment, OrderDetail, GoodsReceipt, \
-    GoodsReceiptDetail, Conversation, Message
+    GoodsReceiptDetail, Conversation, Message, ProductImage
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -32,9 +32,21 @@ class CategoryAdmin(admin.ModelAdmin):
     empty_value_display = "-Không có-"
 
 
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+    verbose_name = "Hình ảnh sản phẩm"
+    verbose_name_plural = "Hình ảnh sản phẩm"
+    readonly_fields = ['image_view']
+
+    def image_view(self, product_image):
+        return mark_safe(f"<img src={product_image.link.url} width='150' />")
+
+
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'brand', 'price', 'quantity', 'active']
     readonly_fields = ['image_view']
+    inlines = [ProductImageInline]
 
     def image_view(self, product):
         return mark_safe(f"<img src={product.image.url} width='250' />")
@@ -82,7 +94,7 @@ class OrderAdmin(admin.ModelAdmin):
 
 
 class GoodsReceiptAdmin(admin.ModelAdmin):
-    list_display = ['id', 'supplier', 'created_date']
+    list_display = ['id', 'user', 'supplier', 'created_date', 'updated_date']
     search_fields = ['supplier__name']
     list_filter = ['created_date', 'supplier']
     inlines = [GoodsReceiptDetailInlineAdmin]
@@ -95,9 +107,9 @@ class GoodsReceiptAdmin(admin.ModelAdmin):
 
 
 class StationeryAdminSite(admin.AdminSite):
-    site_header = 'Open Stationery Store'
-    site_title = 'Stationery Store Admin'
-    index_title = 'Quản trị Open Stationery Store'
+    site_header = 'TH Store Administration'
+    site_title = 'TH Store Admin'
+    index_title = 'Trang quản trị TH Store'
 
     def get_urls(self):
         return [path('store-stats/', self.store_stats)] + super().get_urls()

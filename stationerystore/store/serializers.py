@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 
 from store.models import Category, Supplier, Product, Review, User, Order, OrderDetail, Payment, Discount, GoodsReceipt, \
-    GoodsReceiptDetail
+    GoodsReceiptDetail, ProductImage
+from store.utils import vnpay
 
 
 class CategorySerializer(ModelSerializer):
@@ -14,10 +15,24 @@ class CategorySerializer(ModelSerializer):
         fields = '__all__'
 
 
+class ImageProductSerializer(ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.link:
+            data['link'] = instance.link.url
+        return data
+
+
 class ProductSerializer(ModelSerializer):
+    images = ImageProductSerializer(many=True, read_only=True)
+
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category", "brand", "images"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -135,6 +150,21 @@ class PaymentSerializer(ModelSerializer):
         model = Payment
         fields = '__all__'
 
+    # def create(self, validated_data):
+    #     order = validated_data.get('order')
+    #     request = self.context['request']
+    #     print(order)
+    #     if not order:
+    #         raise serializers.ValidationError("Đơn hàng không được để trống.")
+    #
+    #     # Kiểm tra trạng thái đơn hàng
+    #     # if order.status != Order.Status.PAID:
+    #     #     raise serializers.ValidationError("Chỉ có thể thanh toán cho đơn hàng đã thanh toán.")
+    #
+    #     return Response(
+    #         vnpay.create_vnpay_url(request, order), status=status.HTTP_200_OK
+    #     )
+
 
 class DiscountSerializer(ModelSerializer):
     class Meta:
@@ -146,6 +176,11 @@ class GoodsReceiptSerializer(ModelSerializer):
     class Meta:
         model = GoodsReceipt
         fields = '__all__'
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        goods_receipt = GoodsReceipt.objects.create(user=user, **validated_data)
+        return goods_receipt
 
 
 class GoodsReceiptDetailSerializer(ModelSerializer):

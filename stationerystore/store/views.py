@@ -5,7 +5,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from store import serializers, paginators, perms
-from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt
+from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, ProductImage
+from store.utils import vnpay
+from store.utils.vnpay import create_vnpay_url, payment_ipn
 
 
 def home(request):
@@ -27,6 +29,12 @@ class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializers.CategorySerializer(categories, many=True).data, status=status.HTTP_200_OK)
 
 
+class ProductImageViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
+    queryset = ProductImage.objects.all()
+    serializer_class = serializers.ImageProductSerializer
+    lookup_field = "pk"
+
+
 class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.RetrieveAPIView):
     queryset = Product.objects.all()
     serializer_class = serializers.ProductSerializer
@@ -40,7 +48,7 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
             if params:
                 query = query.filter(name__icontains=params)
 
-            category_id = self.request.query_params.get("category_id")
+            category_id = self.request.query_params.get("category")
             if category_id:
                 query = query.filter(category_id=category_id)
 
@@ -153,14 +161,45 @@ class DiscountViewSet(viewsets.ViewSet, generics.ListAPIView):
         return query
 
 
-class GoodsReceiptViewSet(viewsets.ViewSet, generics.ListAPIView):
+class PaymentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
+    queryset = Payment.objects.all()
+    serializer_class = serializers.PaymentSerializer
+    permission_classes = [perms.IsStaff | perms.IsOrderOwner]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order = serializer.validated_data['order']
+        # payment = Payment.objects.create(
+        #     order=order,
+        #     amount=order.total_price,
+        #     method=serializer.validated_data.get('method', Payment.Method.CASH),
+        #     status=Payment.Status.PENDING
+        # )
+        payment_url = create_vnpay_url(request, order)
+
+        return Response({"payment_url": payment_url}, status=status.HTTP_200_OK)
+
+    @action(methods=["get"], detail=False, url_path="vnpay_return", permission_classes=[])
+    def vnpay_return(self, request):
+        return vnpay.payment_ipn(request)
+
+    @action(methods=["get"], detail=True, url_path="payment-details",
+            permission_classes=[perms.IsStaff | perms.IsOrderOwner])
+    def get_payment_details(self, request, pk):
+        order = self.get_object()
+        payment = order.payment_set.select_related('order').first()
+        if not payment:
+            return Response({"detail": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializers.PaymentSerializer(payment).data, status=status.HTTP_200_OK)
+
+
+class GoodsReceiptViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
     queryset = GoodsReceipt.objects.all()
     serializer_class = serializers.GoodsReceiptSerializer
     permission_classes = [perms.IsStaff]
 
-    # def get_queryset(self, permission_classes=[perms.IsStaff]):
-    #     query = self.queryset
-    #     return query
     @action(methods=["get"], detail=True, url_path="details", permission_classes=[perms.IsStaff])
     def get_goods_receipt_details(self, request, pk):
         goods_receipt_details = self.get_object().goodsreceiptdetail_set.select_related('goods_receipt').all()

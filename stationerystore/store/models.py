@@ -56,7 +56,7 @@ class Product(BaseModel, Active):
     name = models.CharField(max_length=255, null=False)
     description = RichTextField(null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    image = CloudinaryField(blank=True)
+    image = CloudinaryField()
     quantity = models.IntegerField(null=False, blank=False)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     discount = models.ManyToManyField('Discount', null=True, blank=True)
@@ -67,6 +67,14 @@ class Product(BaseModel, Active):
 
     class Meta:
         ordering = ['id']
+
+
+class ProductImage(BaseModel):
+    link = CloudinaryField()
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+
+    def __str__(self):
+        return f"Image for {self.product.name} - {self.id}"
 
 
 class Supplier(models.Model):
@@ -151,7 +159,7 @@ class Payment(BaseModel):
 class Review(BaseModel):
     rating = models.IntegerField()
     comment = models.TextField()
-    image = CloudinaryField()
+    image = CloudinaryField(blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
