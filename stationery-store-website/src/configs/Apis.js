@@ -2,12 +2,15 @@ import axios from "axios";
 import cookie from 'react-cookies'
 
 
-const BASE_URL = " http://10.17.64.105:8000/";
+const BASE_URL = " http://10.17.64.184:8000/";
 
 export const endpoint = {
     "login": "/oauth2/token/",
     "register": "/users/",
     "profile": "/users/profile",
+
+    "loyalty": "/loyalty-points/my-loyalty-point/",
+    "loyalty_history": "/loyalty-point-histories/",
 
     "category": "/categories/",
 

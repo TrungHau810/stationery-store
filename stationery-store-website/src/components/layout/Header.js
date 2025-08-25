@@ -30,13 +30,13 @@ const Header = () => {
                         {/* Menu chính */}
                         <Nav className="me-auto">
                             <Nav.Link as={Link} to="/">Trang chủ</Nav.Link>
-                            <Nav.Link as={Link} to="/products">Sản phẩm</Nav.Link>
+                            <Nav.Link as={Link} to="/lich-su-mua-hang/">Lịch sử mua hàng</Nav.Link>
                             <NavDropdown title="Danh mục" id="nav-categories">
                                 {categories.map((category) => (
                                     <NavDropdown.Item
                                         as={Link}
                                         key={category.id}
-                                        to={`?category=${category.id}`}
+                                        to={`/?category=${category.id}`}
                                     >
                                         {category.name}
                                     </NavDropdown.Item>
@@ -81,6 +81,9 @@ const Header = () => {
                                 >
                                     <NavDropdown.Item as={Link} to="/profile">
                                         Thông tin cá nhân
+                                    </NavDropdown.Item>
+                                    <NavDropdown.Item as={Link} to="/loyalty">
+                                        Lịch sử điểm
                                     </NavDropdown.Item>
                                     <NavDropdown.Divider />
                                     <NavDropdown.Item

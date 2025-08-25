@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { MyUserContext } from "../configs/Context";
 import { Badge, Button, Card, Col, Container, Form, Image, Nav, Row, Tab } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 
 const Profile = () => {
@@ -60,9 +60,9 @@ const Profile = () => {
                                         <h4 className="mt-3 fw-bold">{user.full_name}</h4>
                                         <p className="text-muted">@{user.username}</p>
                                         <Badge bg="info" className="text-white px-3 py-2 rounded-pill">
-                                            {user.role==="customer"?"Khách hàng": user.role==="admin"?"Quản trị viên":
-                                            user.role==="staff"?"Nhân viên": "Quản lý"}
-                                            </Badge>
+                                            {user.role === "customer" ? "Khách hàng" : user.role === "admin" ? "Quản trị viên" :
+                                                user.role === "staff" ? "Nhân viên" : "Quản lý"}
+                                        </Badge>
                                     </div>
 
                                     <Tab.Container defaultActiveKey="info">
@@ -84,7 +84,7 @@ const Profile = () => {
                                                             type="text"
                                                             name="full_name"
                                                             value={user.full_name || ""}
-                                                            // onChange={handleChange}
+                                                        // onChange={handleChange}
                                                         />
                                                     </Form.Group>
 
@@ -94,7 +94,7 @@ const Profile = () => {
                                                             type="email"
                                                             name="email"
                                                             value={user.email || ""}
-                                                            // onChange={handleChange}
+                                                        // onChange={handleChange}
                                                         />
                                                     </Form.Group>
 
@@ -104,7 +104,7 @@ const Profile = () => {
                                                             type="text"
                                                             name="number_phone"
                                                             value={user.number_phone || ""}
-                                                            // onChange={handleChange}
+                                                        // onChange={handleChange}
                                                         />
                                                     </Form.Group>
 
@@ -114,7 +114,7 @@ const Profile = () => {
                                                             type="text"
                                                             name="address"
                                                             value={user.address || ""}
-                                                            // onChange={handleChange}
+                                                        // onChange={handleChange}
                                                         />
                                                     </Form.Group>
 
@@ -155,6 +155,8 @@ const Profile = () => {
                             </Card>
                         </Col>
                     </Row>
+
+                    <Link to="/loyalty">Điểm thành viên</Link>
                 </Container>
             )}
         </>

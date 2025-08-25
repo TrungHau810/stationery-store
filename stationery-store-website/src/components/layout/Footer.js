@@ -7,15 +7,13 @@ const Footer = () => {
         <Row>
           {/* Thông tin cửa hàng */}
           <Col md={4} className="mb-4">
-            <h5 className="mb-3">Cửa hàng Văn phòng phẩm</h5>
+            <h5 className="mb-3">Cửa hàng Văn phòng phẩm - TH Store</h5>
             <p>
               Cung cấp các sản phẩm văn phòng phẩm chất lượng cao, từ bút, giấy đến dụng cụ học tập.
             </p>
-            <p>
-              <strong>Địa chỉ:</strong> 589 Xa Lộ Hà Nội, Thảo Điền, Thành phố Thủ Đức, TP. Hồ Chí Minh<br />
-              <strong>Email:</strong> tthau2004@gmail.com<br />
-              <strong>Điện thoại:</strong> (028) 1234-5678
-            </p>
+              <p><strong>Địa chỉ:</strong> Phường Long Bình, Thành phố Thủ Đức, Thành phố Hồ Chí Minh</p>
+              <p><strong>Email:</strong> tthau2004@gmail.com</p>
+              <p><strong>Điện thoại:</strong> (028) 1234-5678</p>
           </Col>
 
           {/* Liên kết nhanh */}
@@ -41,7 +39,7 @@ const Footer = () => {
         </Row>
         <Row className="mt-4">
           <Col className="text-center">
-            <p className="mb-0">&copy; {new Date().getFullYear()} Văn phòng phẩm. All rights reserved.</p>
+            <p className="mb-0">&copy; {new Date().getFullYear()} TH Store. All rights reserved.</p>
           </Col>
         </Row>
       </Container>

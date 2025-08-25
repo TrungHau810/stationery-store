@@ -13,6 +13,8 @@ import { useReducer } from 'react';
 import Profile from './components/Profile';
 import MyCartReducer from './reducers/MyCartReducer';
 import Cart from './components/Cart';
+import LoyaltyPoint from './components/LoyaltyPoint';
+import PurchaseHistory from './components/PurchaseHistory';
 
 function App() {
 
@@ -33,8 +35,13 @@ function App() {
               <Route path='/login' element={<Login />} />
               <Route path='/register' element={<Register />} />
               <Route path='/profile' element={<Profile />} />
+
+              <Route path='/loyalty' element={<LoyaltyPoint />} />
+
               <Route path='/product/:id' element={<ProductDetail />} />
               <Route path='/cart' element={<Cart />} />
+
+              <Route path='/lich-su-mua-hang' element={<PurchaseHistory />} />
 
             </Routes>
           </Container>
