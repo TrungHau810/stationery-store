@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 
 from store.models import Category, Supplier, Product, Review, User, Order, OrderDetail, Payment, Discount, GoodsReceipt, \
-    GoodsReceiptDetail, ProductImage
+    GoodsReceiptDetail, ProductImage, ReviewImage
 from store.utils import vnpay
 
 
@@ -15,7 +15,7 @@ class CategorySerializer(ModelSerializer):
         fields = '__all__'
 
 
-class ImageProductSerializer(ModelSerializer):
+class ProductImageSerializer(ModelSerializer):
     class Meta:
         model = ProductImage
         fields = '__all__'
@@ -28,11 +28,12 @@ class ImageProductSerializer(ModelSerializer):
 
 
 class ProductSerializer(ModelSerializer):
-    images = ImageProductSerializer(many=True, read_only=True)
+    images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category", "brand", "images"]
+        fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category",
+                  "brand", "discount", "images"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -73,10 +74,23 @@ class SupplierSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class ReviewImageSerializer(ModelSerializer):
+    class Meta:
+        model = ReviewImage
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.link:
+            data['link'] = instance.link.url
+        return data
+
+
 class ReviewSerializer(ModelSerializer):
+    images = ReviewImageSerializer(many=True, read_only=True)
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images']
 
 
 class OrderDetailSerializer(ModelSerializer):
@@ -110,26 +124,30 @@ class OrderSerializer(ModelSerializer):
         if not order_details:
             raise serializers.ValidationError("Đơn hàng phải có ít nhất 1 sản phẩm.")
 
+        voucher_code = self.initial_data.get("discount", None)
+        discount = None
+        if voucher_code:
+            try:
+                discount = Discount.objects.get(pk=voucher_code)
+                now = timezone.now()
+                if not (discount.start_date <= now <= discount.end_date):
+                    raise serializers.ValidationError("Mã giảm giá không hợp lệ hoặc đã hết hạn.")
+            except Discount.DoesNotExist:
+                raise serializers.ValidationError("Mã giảm giá không tồn tại.")
+
         total_price = 0
         for detail in order_details:
             try:
                 product = Product.objects.get(pk=detail["product_id"])
-                total_price += product.price * detail["quantity"]
+                price = product.price
+                if discount and product.discount.filter(pk=discount.pk).exists():
+                    price = (price - (price * discount.discount / 100))
+                total_price += (price * detail["quantity"])
             except Product.DoesNotExist:
                 raise serializers.ValidationError(f"Sản phẩm id={detail['product_id']} không tồn tại")
 
         if total_price <= 0:
             raise serializers.ValidationError("Tổng tiền phải lớn hơn 0.")
-
-        voucher_code = self.initial_data.get("discount", None)
-        if voucher_code:
-            try:
-                discount = Discount.objects.get(pk=voucher_code)
-                if discount.start_date > timezone.now() or discount.end_date < timezone.now():
-                    raise serializers.ValidationError("Mã giảm giá không hợp lệ hoặc đã hết hạn.")
-                total_price -= (total_price * discount.discount / 100)
-            except Discount.DoesNotExist:
-                raise serializers.ValidationError("Mã giảm giá không tồn tại.")
 
         # gán thêm vào validated_data để dùng trong create
         data["total_price"] = total_price
@@ -142,6 +160,10 @@ class OrderSerializer(ModelSerializer):
         order = Order.objects.create(user=user, **validated_data)
         for detail in order_details:
             OrderDetail.objects.create(order=order, **detail)
+            # Cập nhật số lượng sản phẩm trong kho
+            product = Product.objects.get(pk=detail["product_id"])
+            product.quantity -= detail["quantity"]
+            product.save()
         return order
 
 

@@ -1,11 +1,11 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from store import serializers, paginators, perms
-from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, ProductImage
+from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, ProductImage, ReviewImage
 from store.utils import vnpay
 from store.utils.vnpay import create_vnpay_url, payment_ipn
 
@@ -31,7 +31,7 @@ class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
 
 class ProductImageViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
     queryset = ProductImage.objects.all()
-    serializer_class = serializers.ImageProductSerializer
+    serializer_class = serializers.ProductImageSerializer
     lookup_field = "pk"
 
 
@@ -98,6 +98,11 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     serializer_class = serializers.UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action.__eq__("create"):
+            return [AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     @action(methods=["get", "patch"], detail=False, url_path="profile",
             permission_classes=[permissions.IsAuthenticated])
     def get_current_user(self, request):
@@ -120,9 +125,16 @@ class SupplierViewSet(viewsets.ViewSet, generics.ListAPIView):
     permission_classes = [perms.IsStaff]
 
 
-class ReviewViewSet(viewsets.ViewSet, generics.ListAPIView):
+class ReviewViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Review.objects.all()
     serializer_class = serializers.ReviewSerializer
+    permission_classes = [perms.IsReviewOwner | perms.IsStaff]
+    pagination_class = paginators.ReviewPagination
+
+    def get_permissions(self):
+        if self.action.__eq__("list"):
+            return [AllowAny()]
+        return super().get_permissions()
 
 
 class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView, generics.CreateAPIView):
@@ -147,10 +159,34 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
 
         return Response(serializers.OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
 
+    @action(methods=['patch'], detail=True, url_path='cancel', permission_classes=[perms.IsOrderOwner | perms.IsStaff])
+    def cancel_order(self, request, pk=None):
+        order = self.get_object()
+        if order.status == Order.Status.PAID:
+            return Response({"detail": "Chỉ được huỷ đơn hàng chưa thanh toán"}, status=status.HTTP_400_BAD_REQUEST)
 
-class DiscountViewSet(viewsets.ViewSet, generics.ListAPIView):
+        if order.status == Order.Status.CANCELLED:
+            return Response({"detail": "Đơn hàng đã huỷ trước đó"}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason_cancel = request.data.get('reason_cancel', '')
+        order.status = Order.Status.CANCELLED
+        order.reson_cancel = reason_cancel
+        order.save()
+
+        # Cập nhật lại số lượng sản phẩm trong kho
+        for item in order.orderdetail_set.all():
+            product = item.product
+            if product:
+                product.quantity += item.quantity
+                product.save()
+
+        return Response({"detail": f'Đơn hàng #{order.pk} huỷ thành công'}, status=status.HTTP_200_OK)
+
+
+class DiscountViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     queryset = Discount.objects.all()
     serializer_class = serializers.DiscountSerializer
+    pagination_class = paginators.DiscountPagination
 
     def get_queryset(self):
         query = self.queryset

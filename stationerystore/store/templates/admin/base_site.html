@@ -1,0 +1,10 @@
+{% extends "admin/base.html" %}
+
+{% block branding %}
+  {{ block.super }}
+  <a href="{% url 'store_admin:store-stats' %}"
+     class="btn btn-success"
+     style="margin-left:20px; padding:5px 10px; border-radius:4px; background:#28a745; color:white; text-decoration:none;">
+      📊 Thống kê cửa hàng
+  </a>
+{% endblock %}

@@ -27,6 +27,7 @@ class User(AbstractUser):
     ROLE_CHOICES = (
         ('admin', 'Quản trị viên'),
         ('customer', 'Khách hàng'),
+        ('manager', 'Quản lý'),
         ('staff', 'Nhân viên'),
     )
     number_phone = models.CharField(max_length=11, null=False, unique=True)
@@ -74,7 +75,7 @@ class ProductImage(BaseModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
 
     def __str__(self):
-        return f"Image for {self.product.name} - {self.id}"
+        return f"Ảnh sản phẩm #{self.id} - {self.product.name} "
 
 
 class Supplier(models.Model):
@@ -98,9 +99,10 @@ class Order(BaseModel):
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     discount = models.ForeignKey('Discount', on_delete=models.SET_NULL, null=True, blank=True)
+    reson_cancel = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.id} - {self.user.username if self.user else 'Anonymous'} - {self.status}"
+        return f"#{self.id} - {self.user.full_name if self.user else 'Anonymous'} ({self.user.username if self.user else 'Anonymous'})"
 
 
 class OrderDetail(models.Model):
@@ -109,7 +111,7 @@ class OrderDetail(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.id} - Order {self.order.id} - Product {self.product.name} - Quantity {self.quantity}"
+        return f"#{self.id} - Mã đơn hàng #{self.order.id} - Tên SP: {self.product.name} - SL: {self.quantity}"
 
 
 class GoodsReceipt(BaseModel):
@@ -136,7 +138,7 @@ class Discount(BaseModel):
     end_date = models.DateTimeField(null=False)
 
     def __str__(self):
-        return f"{self.code} - {self.discount}% - {self.start_date} to {self.end_date}"
+        return f"Mã: {self.code} - Giảm {self.discount}% - từ {self.start_date.strftime('%d/%m/%Y %H:%M')} đến {self.end_date.strftime('%d/%m/%Y %H:%M')}"
 
 
 class Payment(BaseModel):
@@ -159,12 +161,20 @@ class Payment(BaseModel):
 class Review(BaseModel):
     rating = models.IntegerField()
     comment = models.TextField()
-    image = CloudinaryField(blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    reply = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
 
     def __str__(self):
-        return f"Review by {self.user.username if self.user else 'Anonymous'} for {self.product.name} - Rating: {self.rating}"
+        return f"{self.user.full_name if self.user else 'Anonymous'} (username: {self.user.username if self.user else "Anonymous"}) - {self.product.name} - {self.rating} sao"
+
+
+class ReviewImage(BaseModel):
+    link = CloudinaryField(null=True)
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='images')
+
+    def __str__(self):
+        return f"Hình ảnh đánh giá sản phẩm #{self.review.product.pk} {self.review.product.name}"
 
 
 class Conversation(BaseModel):

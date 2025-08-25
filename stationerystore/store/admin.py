@@ -5,9 +5,8 @@ from django.utils.safestring import mark_safe
 from django.urls import path
 from oauth2_provider.models import AccessToken
 
-from store import models
 from store.models import User, Category, Product, Discount, Order, Supplier, Review, Payment, OrderDetail, GoodsReceipt, \
-    GoodsReceiptDetail, Conversation, Message, ProductImage
+    GoodsReceiptDetail, Conversation, Message, ProductImage, ReviewImage
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -44,7 +43,10 @@ class ProductImageInline(admin.TabularInline):
 
 
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'brand', 'price', 'quantity', 'active']
+    list_display = ['id', 'name', 'category', 'brand', 'price', 'quantity', 'active']
+    search_fields = ['id', 'name', 'category__name', 'brand__name']
+    list_filter = ['category', 'brand', 'active']
+    empty_value_display = "-Không có-"
     readonly_fields = ['image_view']
     inlines = [ProductImageInline]
 
@@ -90,6 +92,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'total_price', 'status', 'created_date', 'updated_date']
     search_fields = ['user__username', 'user__email']
     list_filter = ['status', 'created_date']
+    emty_value_display = "-Không có-"
     inlines = [OrderDetailInlineOrderAdmin]
 
 
@@ -104,6 +107,25 @@ class GoodsReceiptAdmin(admin.ModelAdmin):
         if db_field.name == 'user':
             kwargs['queryset'] = User.objects.filter(role="staff")
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+
+class ReviewImageInline(admin.TabularInline):
+    model = ReviewImage
+    extra = 1
+    verbose_name = "Hình ảnh đánh giá"
+    verbose_name_plural = "Hình ảnh đánh giá"
+    readonly_fields = ['image_view']
+
+    def image_view(self, review_image):
+        return mark_safe(f"<img src={review_image.link.url} width='150' />")
+
+
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'product', 'rating', 'created_date']
+    search_fields = ['user__username', 'product__name']
+    list_filter = ['rating', 'created_date']
+    empty_value_display = "-Không có-"
+    inlines = [ReviewImageInline]
 
 
 class StationeryAdminSite(admin.AdminSite):
@@ -123,7 +145,7 @@ class StationeryAdminSite(admin.AdminSite):
         total_suppliers = Supplier.objects.count()
         products = Product.objects.all()
 
-        return TemplateResponse(request, 'store-stats.html', context={
+        return TemplateResponse(request, 'admin/store-stats.html', context={
             'total_revenue': total_revenue,
             'products': products,
             'total_users': total_users,
@@ -146,7 +168,7 @@ admin_site.register(Supplier, SupplierAdmin)
 admin_site.register(Payment)
 admin_site.register(GoodsReceipt, GoodsReceiptAdmin)
 admin_site.register(GoodsReceiptDetail)
-admin_site.register(Review)
+admin_site.register(Review, ReviewAdmin)
 admin_site.register(Conversation)
 admin_site.register(Message)
 

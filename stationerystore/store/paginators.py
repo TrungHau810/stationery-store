@@ -8,5 +8,10 @@ class ProductPagination(PageNumberPagination):
 class ReviewPagination(PageNumberPagination):
     page_size = 5
 
+
 class OrderPagination(PageNumberPagination):
     page_size = 10
+
+
+class DiscountPagination(PageNumberPagination):
+    page_size = 5
