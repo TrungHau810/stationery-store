@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 
 from store.models import Category, Supplier, Product, Review, User, Order, OrderDetail, Payment, Discount, GoodsReceipt, \
-    GoodsReceiptDetail, ProductImage, ReviewImage
+    GoodsReceiptDetail, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
 from store.utils import vnpay
 
 
@@ -65,7 +65,20 @@ class UserSerializer(ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
 
+        LoyaltyPoint.objects.create(user=user, total_point=0)
         return user
+
+
+class LoyaltyPointSerializer(ModelSerializer):
+    class Meta:
+        model = LoyaltyPoint
+        fields = '__all__'
+
+
+class LoyaltyPointHistorySerializer(ModelSerializer):
+    class Meta:
+        model = LoyaltyPointHistory
+        fields = '__all__'
 
 
 class SupplierSerializer(ModelSerializer):
@@ -88,6 +101,7 @@ class ReviewImageSerializer(ModelSerializer):
 
 class ReviewSerializer(ModelSerializer):
     images = ReviewImageSerializer(many=True, read_only=True)
+
     class Meta:
         model = Review
         fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images']
@@ -156,14 +170,51 @@ class OrderSerializer(ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        # Điểm hiện có của khách hàng
+        use_loyalty_point = user.loyaltypoint.total_point
+        # Điểm có thể sử dụng (làm tròn xuống bội số của 1000)
+        redeem_point = (use_loyalty_point // 1000) * 1000
+        if redeem_point < 0:
+            raise serializers.ValidationError("Điểm sử dụng không hợp lệ.")
+        if redeem_point > use_loyalty_point:
+            raise serializers.ValidationError("Bạn không có đủ điểm để sử dụng.")
+        if redeem_point > validated_data['total_price']:
+            raise serializers.ValidationError("Điểm sử dụng không được lớn hơn tổng tiền thanh toán.")
+        validated_data['total_price'] -= redeem_point
         order_details = validated_data.pop('order_details', [])
+        # Tạo đơn hàng
         order = Order.objects.create(user=user, **validated_data)
+        # Cập nhật số lượng các sản phẩm trong kho
         for detail in order_details:
             OrderDetail.objects.create(order=order, **detail)
             # Cập nhật số lượng sản phẩm trong kho
             product = Product.objects.get(pk=detail["product_id"])
             product.quantity -= detail["quantity"]
             product.save()
+
+        # Tính điểm thưởng
+        points_earned = int(order.total_price) * 0.01  # Tích lũy 1% giá trị đơn hàng
+        # Nếu có điểm thưởng
+        if points_earned > 0:
+            user.loyaltypoint.total_point = user.loyaltypoint.total_point - redeem_point + points_earned
+            user.loyaltypoint.save()
+
+            # Ghi lại lịch sử điểm thưởng
+            LoyaltyPointHistory.objects.create(
+                user=user,
+                point=int(points_earned),
+                type=LoyaltyPointHistory.Type.EARN,
+                order=order
+            )
+
+        # Nếu có sử dụng điểm thưởng
+        if(redeem_point > 0):
+            LoyaltyPointHistory.objects.create(
+                user=user,
+                point=redeem_point,
+                type=LoyaltyPointHistory.Type.REDEMP,
+                order=order
+            )
         return order
 
 

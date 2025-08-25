@@ -41,6 +41,14 @@ class User(AbstractUser):
         return self.username
 
 
+class LoyaltyPoint(BaseModel):
+    total_point = models.IntegerField(default=0)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.total_point} điểm"
+
+
 class Category(BaseModel, Active):
     name = models.CharField(max_length=150, null=False, unique=True)
     description = models.TextField(null=True, blank=True)
@@ -90,9 +98,9 @@ class Supplier(models.Model):
 
 class Order(BaseModel):
     class Status(models.TextChoices):
-        PENDING = "Đã đặt hàng"
-        PAID = "Đã thanh toán"
-        CANCELLED = "Đã huỷ"
+        PENDING = "PENDING", "Đã đặt hàng"
+        PAID = "PAID", "Đã thanh toán"
+        CANCELED = "CANCELED", "Đã huỷ"
 
     note = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
@@ -112,6 +120,20 @@ class OrderDetail(models.Model):
 
     def __str__(self):
         return f"#{self.id} - Mã đơn hàng #{self.order.id} - Tên SP: {self.product.name} - SL: {self.quantity}"
+
+
+class LoyaltyPointHistory(BaseModel):
+    class Type(models.TextChoices):
+        EARN = "EARN", "Tích điểm"
+        REDEMP = "REDEMP", "Đổi điểm"
+
+    point = models.IntegerField(null=False)
+    type = models.CharField(max_length=10, choices=Type, default=Type.EARN)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username}  {self.get_type_display()} {self.point} điểm"
 
 
 class GoodsReceipt(BaseModel):

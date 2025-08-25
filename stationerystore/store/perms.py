@@ -13,7 +13,7 @@ class IsStaff(permissions.IsAuthenticated):
 class IsManager(permissions.IsAuthenticated):
 
     def has_permission(self, request, view):
-        return  super().has_permission(request, view) and request.user.role == 'manager'
+        return super().has_permission(request, view) and request.user.role == 'manager'
 
 
 class IsOrderOwner(permissions.IsAuthenticated):
@@ -25,6 +25,24 @@ class IsOrderOwner(permissions.IsAuthenticated):
         return super().has_permission(request, view) and request.user == order.user
 
 
+class IsOwnerLoyaltyPoint(permissions.IsAuthenticated):
+    """
+    Custom permission to only allow owners of loyalty points to view or edit it.
+    """
+
+    def has_object_permission(self, request, view, loyalty_point):
+        return super().has_permission(request, view) and request.user == loyalty_point.user
+
+
+class IsOwnerLoyaltyPointHistory(permissions.IsAuthenticated):
+    """
+    Custom permission to only allow owners of loyalty point history to view or edit it.
+    """
+
+    def has_object_permission(self, request, view, loyalty_point_history):
+        return super().has_permission(request, view) and request.user == loyalty_point_history.user
+
+
 class IsReviewOwner(permissions.IsAuthenticated):
     """
     Custom permission to only allow owners of a review to view or edit it.
@@ -32,6 +50,7 @@ class IsReviewOwner(permissions.IsAuthenticated):
 
     def has_object_permission(self, request, view, review):
         return super().has_permission(request, view) and request.user == review.user
+
 
 class IsReviewOwner(permissions.IsAuthenticated):
     """

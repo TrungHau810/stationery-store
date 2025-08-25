@@ -5,14 +5,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from store import serializers, paginators, perms
-from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, ProductImage, ReviewImage
+from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, \
+    ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
 from store.utils import vnpay
 from store.utils.vnpay import create_vnpay_url, payment_ipn
-
-
-def home(request):
-    return HttpResponse(
-        "<h1>Welcome to Stationery Store API</h1><p>Go to <a href='/swagger/'>Swagger Docs</a></p> <p>Go to <a href='/api/'>APIs</a></p> <p>Go to <a href='/admin/'>Admin site</a></p>")
 
 
 class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
@@ -117,6 +113,27 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             user.save()
 
         return Response(serializers.UserSerializer(request.user).data)
+
+
+class LoyaltyPointViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = LoyaltyPoint.objects.all()
+    serializer_class = serializers.LoyaltyPointSerializer
+    permission_classes = [perms.IsOwnerLoyaltyPoint | perms.IsStaff]
+
+    @action(methods=['get'], detail=False, url_path='my-loyalty-point', permission_classes=[perms.IsOwnerLoyaltyPoint])
+    def get_my_loyalty_point(self, request):
+        loyalty_point = LoyaltyPoint.objects.filter(user__pk=self.request.user.pk).first()
+        print(loyalty_point)
+        if not loyalty_point:
+            return Response({"detail": "Loyalty point not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializers.LoyaltyPointSerializer(loyalty_point).data, status=status.HTTP_200_OK)
+
+
+class LoyaltyPointHistoryViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = LoyaltyPointHistory.objects.all()
+    serializer_class = serializers.LoyaltyPointHistorySerializer
+    permission_classes = [perms.IsOwnerLoyaltyPoint | perms.IsStaff]
+
 
 
 class SupplierViewSet(viewsets.ViewSet, generics.ListAPIView):

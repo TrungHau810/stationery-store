@@ -5,6 +5,8 @@ from . import views
 
 router = DefaultRouter()
 router.register("users", views.UserViewSet, basename="user")
+router.register("loyalty-points", views.LoyaltyPointViewSet, basename="loyalty-point")
+router.register("loyalty-point-histories", views.LoyaltyPointHistoryViewSet, basename="loyalty-point-history")
 router.register('categories', views.CategoryViewSet, basename="category")
 router.register('products', views.ProductViewSet, basename="product")
 router.register('suppliers', views.SupplierViewSet, basename='supplier')

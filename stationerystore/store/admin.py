@@ -6,7 +6,7 @@ from django.urls import path
 from oauth2_provider.models import AccessToken
 
 from store.models import User, Category, Product, Discount, Order, Supplier, Review, Payment, OrderDetail, GoodsReceipt, \
-    GoodsReceiptDetail, Conversation, Message, ProductImage, ReviewImage
+    GoodsReceiptDetail, Conversation, Message, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -88,12 +88,19 @@ class DiscountAdmin(admin.ModelAdmin):
     inlines = [ProductInlineDiscountAdmin]
 
 
+class LoyaltyPointHistoryInline(admin.TabularInline):
+    model = LoyaltyPointHistory
+    extra = 1
+    verbose_name = "Lịch sử điểm thưởng"
+    verbose_name_plural = "Lịch sử điểm thưởng"
+
+
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'total_price', 'status', 'created_date', 'updated_date']
     search_fields = ['user__username', 'user__email']
     list_filter = ['status', 'created_date']
     emty_value_display = "-Không có-"
-    inlines = [OrderDetailInlineOrderAdmin]
+    inlines = [OrderDetailInlineOrderAdmin, LoyaltyPointHistoryInline]
 
 
 class GoodsReceiptAdmin(admin.ModelAdmin):
@@ -126,6 +133,19 @@ class ReviewAdmin(admin.ModelAdmin):
     list_filter = ['rating', 'created_date']
     empty_value_display = "-Không có-"
     inlines = [ReviewImageInline]
+
+
+class LoyaltyPointAdmin(admin.ModelAdmin):
+    list_display = ['user', 'total_point', 'created_date', 'updated_date']
+    search_fields = ['user__username', 'user__full_name', 'user__number_phone', 'user__email']
+    empty_value_display = "-Không có-"
+
+
+class LoyaltyPointHistoryAdmin(admin.ModelAdmin):
+    list_display = ['user', 'point', 'type', 'created_date', 'order']
+    search_fields = ['user__username']
+    list_filter = ['created_date']
+    empty_value_display = "-Không có-"
 
 
 class StationeryAdminSite(admin.AdminSite):
@@ -171,5 +191,7 @@ admin_site.register(GoodsReceiptDetail)
 admin_site.register(Review, ReviewAdmin)
 admin_site.register(Conversation)
 admin_site.register(Message)
+admin_site.register(LoyaltyPoint, LoyaltyPointAdmin)
+admin_site.register(LoyaltyPointHistory, LoyaltyPointHistoryAdmin)
 
 admin_site.register(AccessToken)
