@@ -1,4 +1,7 @@
-from django.http import HttpResponse, JsonResponse
+import random
+from datetime import timedelta
+from django.utils import timezone
+
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import AllowAny
@@ -6,14 +9,18 @@ from rest_framework.response import Response
 
 from store import serializers, paginators, perms
 from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, \
-    ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
-from store.utils import vnpay
-from store.utils.vnpay import create_vnpay_url, payment_ipn
+    ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, Cart, CartItem, OTP
+from store.utils import vnpay, momo, email
 
 
-class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView):
+class CategoryViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
     queryset = Category.objects.all()
     serializer_class = serializers.CategorySerializer
+
+    def get_permissions(self):
+        if self.action.__eq__("create"):
+            return [perms.IsStaff()]
+        return [AllowAny()]
 
     @action(methods=["get"], detail=True, url_path="categories")
     def get_category_in_category(self, request, pk):
@@ -67,6 +74,12 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
             return [permissions.IsAuthenticated()]
         return [AllowAny()]
 
+    @action(methods=['get'], detail=True, url_path='discounts')
+    def get_discounts_of_product(self, request, pk):
+        product = self.get_object()
+        discounts = product.discount.all()
+        return Response(serializers.DiscountSerializer(discounts, many=True).data, status=status.HTTP_200_OK)
+
     @action(methods=["get", "post"], detail=True, url_path="reviews")
     def get_views_of_product(self, request, pk):
         if request.method.__eq__("POST"):
@@ -97,6 +110,8 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     def get_permissions(self):
         if self.action.__eq__("create"):
             return [AllowAny()]
+        if self.action.__eq__("verify_user") or self.action.__eq__("send_otp"):
+            return [AllowAny()]
         return [permissions.IsAuthenticated()]
 
     @action(methods=["get", "patch"], detail=False, url_path="profile",
@@ -113,6 +128,30 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             user.save()
 
         return Response(serializers.UserSerializer(request.user).data)
+
+    @action(methods=["patch"], detail=False, url_path="verified")
+    def verify_user(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response({"detail": "Email là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+        if not User.objects.filter(email=email).exists():
+            return Response({"detail": "Địa chỉ email không được tìm thấy"}, status=status.HTTP_404_NOT_FOUND)
+        user = User.objects.get(email=email)
+        if user.is_active == True:
+            return Response({"detail": "Tài khoản đã được xác thực"}, status=status.HTTP_400_BAD_REQUEST)
+        otp_code = request.data.get('otp_code')
+        if not otp_code:
+            return Response({"detail": "Mã OTP là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+        otp_record = OTP.objects.filter(user=user, code=otp_code).order_by('-created_at').first()
+        if not otp_record:
+            return Response({"detail": "Mã OTP không hợp lệ"}, status=status.HTTP_400_BAD_REQUEST)
+        if timezone.now() > otp_record.created_at + timedelta(minutes=10):
+            return Response({"detail": "Mã OTP đã hết hạn"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_active = True
+        user.save()
+        otp_record.delete()
+        return Response({"detail": "Xác thực tài khoản thành công"}, status=status.HTTP_200_OK)
 
 
 class LoyaltyPointViewSet(viewsets.ViewSet, generics.ListAPIView):
@@ -132,8 +171,16 @@ class LoyaltyPointViewSet(viewsets.ViewSet, generics.ListAPIView):
 class LoyaltyPointHistoryViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = LoyaltyPointHistory.objects.all()
     serializer_class = serializers.LoyaltyPointHistorySerializer
-    permission_classes = [perms.IsOwnerLoyaltyPoint | perms.IsStaff]
+    pagination_class = paginators.LoyaltyPointHistoryPagination
+    permission_classes = [perms.IsOwnerLoyaltyPointHistory | perms.IsStaff]
 
+    def get_queryset(self):
+        query = self.queryset
+        if self.action.__eq__("list"):
+            user_id = self.request.user.pk
+            if user_id:
+                query = query.filter(user__pk=user_id)
+        return query
 
 
 class SupplierViewSet(viewsets.ViewSet, generics.ListAPIView):
@@ -159,7 +206,7 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
     serializer_class = serializers.OrderSerializer
     permission_classes = [perms.IsOrderOwner | perms.IsStaff]
 
-    @action(methods=["get"], detail=True, url_path="details")
+    @action(methods=["get"], detail=True, url_path="detail")
     def get_order_details(self, request, pk):
         order_details = self.get_object().orderdetail_set.select_related('order').all()
         return Response(serializers.OrderDetailSerializer(order_details, many=True).data, status=status.HTTP_200_OK)
@@ -182,11 +229,11 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
         if order.status == Order.Status.PAID:
             return Response({"detail": "Chỉ được huỷ đơn hàng chưa thanh toán"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if order.status == Order.Status.CANCELLED:
+        if order.status == Order.Status.CANCELED:
             return Response({"detail": "Đơn hàng đã huỷ trước đó"}, status=status.HTTP_400_BAD_REQUEST)
 
         reason_cancel = request.data.get('reason_cancel', '')
-        order.status = Order.Status.CANCELLED
+        order.status = Order.Status.CANCELED
         order.reson_cancel = reason_cancel
         order.save()
 
@@ -224,19 +271,32 @@ class PaymentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
         serializer.is_valid(raise_exception=True)
 
         order = serializer.validated_data['order']
-        # payment = Payment.objects.create(
-        #     order=order,
-        #     amount=order.total_price,
-        #     method=serializer.validated_data.get('method', Payment.Method.CASH),
-        #     status=Payment.Status.PENDING
-        # )
-        payment_url = create_vnpay_url(request, order)
+        method = serializer.validated_data.get('method', Payment.Method.CASH)
+
+        if method == Payment.Method.VNPAY:
+            payment_url = vnpay.create_vnpay_url(request, order)
+        elif method == Payment.Method.MOMO:
+            # redirect_url và ipn_url có thể lấy từ settings hoặc request
+            from django.conf import settings
+            redirect_url = getattr(settings, 'MOMO_REDIRECT_URL',
+                                   'http://localhost:8000/b3088a6a-2d17-4f8d-a383-71389a6c600b')
+            ipn_url = getattr(settings, 'MOMO_IPN_URL', 'https://localhost:8000/b3088a6a-2d17-4f8d-a383-71389a6c600b')
+            payment_url = momo.create_momo_url(order, redirect_url, ipn_url)
+        else:
+            payment_url = None
 
         return Response({"payment_url": payment_url}, status=status.HTTP_200_OK)
 
     @action(methods=["get"], detail=False, url_path="vnpay_return", permission_classes=[])
     def vnpay_return(self, request):
         return vnpay.payment_ipn(request)
+
+    @action(methods=["post"], detail=False, url_path="momo_ipn", permission_classes=[])
+    def momo_ipn(self, request):
+        # Xử lý callback từ Momo (tùy chỉnh theo yêu cầu)
+        data = request.data
+        # TODO: kiểm tra và cập nhật trạng thái đơn hàng
+        return Response({"message": "IPN từ Momo nhận thành công", "data": data})
 
     @action(methods=["get"], detail=True, url_path="payment-details",
             permission_classes=[perms.IsStaff | perms.IsOrderOwner])
@@ -258,3 +318,109 @@ class GoodsReceiptViewSet(viewsets.ViewSet, generics.ListAPIView, generics.Creat
         goods_receipt_details = self.get_object().goodsreceiptdetail_set.select_related('goods_receipt').all()
         return Response(serializers.GoodsReceiptDetailSerializer(goods_receipt_details, many=True).data,
                         status=status.HTTP_200_OK)
+
+
+class CartViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
+    queryset = Cart.objects.all()
+    serializer_class = serializers.CartSerializer
+    permission_classes = [perms.IsOwnerCart]
+
+    def get_queryset(self):
+        query = self.queryset
+        if self.action.__eq__("list"):
+            user_id = self.request.user.pk
+            if user_id:
+                query = query.filter(user__pk=user_id)
+        return query
+
+    @action(methods=['post'], detail=False, url_path='add-to-cart')
+    def add_to_cart(self, request):
+        user = request.user
+        product_id = request.data.get('product_id')
+        quantity = int(request.data.get('quantity', 1))
+
+        # Kiểm tra số lượng
+        if quantity < 1:
+            return Response({"detail": "Số lượng sản phẩm phải từ 1"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Kiểm tra sản phẩm có tồn tại
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            return Response({"detail": "Không tìm thấy sản phẩm"}, status=status.HTTP_404_NOT_FOUND)
+        # Kiểm tra số lượng trong kho
+        if product.quantity < quantity:
+            return Response({"detail": "Sản phẩm đã được bán hết"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Lấy hoặc tạo cart cho user
+        cart, _ = Cart.objects.get_or_create(user=user)
+
+        # Lấy hoặc tạo cart item
+        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+
+        if created:
+            cart_item.quantity = quantity
+        else:
+            cart_item.quantity += quantity
+        cart_item.save()
+
+        # Trả về toàn bộ giỏ hàng
+        return Response(serializers.CartSerializer(cart).data, status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=False, url_path='remove-from-cart')
+    def remove_from_cart(self, request):
+        user = request.user
+        product_id = request.data.get('product_id')
+        quantity = int(request.data.get('quantity', 1))
+
+        if quantity < 1:
+            return Response({"detail": "Quantity must be at least 1"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cart = Cart.objects.get(user=user)
+        except Cart.DoesNotExist:
+            return Response({"detail": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            cart_item = CartItem.objects.get(cart=cart, product_id=product_id)
+        except CartItem.DoesNotExist:
+            return Response({"detail": "Product not in cart"}, status=status.HTTP_404_NOT_FOUND)
+
+        # giảm số lượng
+        if cart_item.quantity > quantity:
+            cart_item.quantity -= quantity
+            cart_item.save()
+        else:
+            cart_item.delete()  # nếu hết thì xoá hẳn
+
+        return Response(serializers.CartSerializer(cart).data, status=status.HTTP_200_OK)
+
+
+class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
+    serializer_class = serializers.OTPSerializer
+
+    @action(methods=['post'], detail=False, url_path='send-otp')
+    def send_otp(self, request):
+        email_address = request.data.get('email')
+        if not email_address:
+            return Response({"detail": "Email là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+        if not User.objects.filter(email=email_address).exists():
+            return Response({"detail": "Địa chỉ email không được tìm thấy"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = User.objects.get(email=email_address)
+        if user.is_active == True:
+            return Response({"detail": "Tài khoản đã được xác thực"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tạo mã OTP ngẫu nhiên
+        otp = random.randint(100000, 999999)
+
+        # Gửi OTP qua email
+        try:
+            email.send_otp_via_email(email_address, otp)
+        except Exception as e:
+            return Response({"detail": f"Failed to send OTP: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Lưu OTP vào cơ sở dữ liệu
+        OTP.objects.create(user=user, code=otp)
+
+        return Response({"detail": f"Gửi thành công mã OTP về email {email_address}"}, status=status.HTTP_200_OK)

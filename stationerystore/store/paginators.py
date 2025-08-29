@@ -15,3 +15,7 @@ class OrderPagination(PageNumberPagination):
 
 class DiscountPagination(PageNumberPagination):
     page_size = 5
+
+
+class LoyaltyPointHistoryPagination(PageNumberPagination):
+    page_size = 10

@@ -30,12 +30,12 @@ class User(AbstractUser):
         ('manager', 'Quản lý'),
         ('staff', 'Nhân viên'),
     )
-    number_phone = models.CharField(max_length=11, null=False, unique=True)
-    avatar = CloudinaryField(null=False)
+    number_phone = models.CharField(max_length=11, null=True, unique=True)
+    avatar = CloudinaryField(null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     full_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True, blank=False, null=False)
-    address = models.CharField(max_length=255, null=False)
+    address = models.CharField(max_length=255, null=True)
 
     def __str__(self):
         return self.username
@@ -100,6 +100,8 @@ class Order(BaseModel):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Đã đặt hàng"
         PAID = "PAID", "Đã thanh toán"
+        SHIPPING = "SHIPPING", "Đang giao hàng"
+        DELIVERED = "DELIVERED", "Đã giao hàng"
         CANCELED = "CANCELED", "Đã huỷ"
 
     note = models.TextField(null=True, blank=True)
@@ -111,6 +113,9 @@ class Order(BaseModel):
 
     def __str__(self):
         return f"#{self.id} - {self.user.full_name if self.user else 'Anonymous'} ({self.user.username if self.user else 'Anonymous'})"
+
+    class Meta:
+        ordering = ['-created_date']
 
 
 class OrderDetail(models.Model):
@@ -125,7 +130,7 @@ class OrderDetail(models.Model):
 class LoyaltyPointHistory(BaseModel):
     class Type(models.TextChoices):
         EARN = "EARN", "Tích điểm"
-        REDEMP = "REDEMP", "Đổi điểm"
+        REDEEM = "REDEEM", "Đổi điểm"
 
     point = models.IntegerField(null=False)
     type = models.CharField(max_length=10, choices=Type, default=Type.EARN)
@@ -165,14 +170,14 @@ class Discount(BaseModel):
 
 class Payment(BaseModel):
     class Status(models.TextChoices):
-        PENDING = "Đã chờ"
-        SUCCESS = "Thành công"
-        FAIL = "Thất bại"
+        PENDING = "pending", "Đã chờ"
+        SUCCESS = "success", "Thành công"
+        FAIL = "fail", "Thất bại"
 
     class Method(models.TextChoices):
-        MOMO = "MoMo"
-        CASH = "Tiền mặt"
-        VNPAY = "VNPay"
+        MOMO = "momo", "MoMo"
+        CASH = "cash", "Tiền mặt"
+        VNPAY = "vnpay", "VNPay"
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
@@ -214,3 +219,22 @@ class Message(BaseModel):
     content = models.TextField(null=False)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+
+class OTP(models.Model):
+    code = models.CharField(max_length=6)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"OTP for {self.user.username} - Code: {self.code}"

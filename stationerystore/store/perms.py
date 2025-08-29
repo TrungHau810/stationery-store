@@ -68,3 +68,21 @@ class IsCustomer(permissions.IsAuthenticated):
 
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role == 'customer'
+
+
+class IsOwnerCart(permissions.IsAuthenticated):
+    """
+    Custom permission to only allow owners of a cart to view or edit it.
+    """
+
+    def has_object_permission(self, request, view, cart):
+        return super().has_permission(request, view) and request.user == cart.user
+
+
+class IsManagerOrStaff(permissions.IsAuthenticated):
+    """
+    Custom permission to only allow users with the 'manager' or 'staff' role to access certain views.
+    """
+
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.role in ['manager', 'staff']

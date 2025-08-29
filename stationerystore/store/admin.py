@@ -6,12 +6,12 @@ from django.urls import path
 from oauth2_provider.models import AccessToken
 
 from store.models import User, Category, Product, Discount, Order, Supplier, Review, Payment, OrderDetail, GoodsReceipt, \
-    GoodsReceiptDetail, Conversation, Message, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
+    GoodsReceiptDetail, Conversation, Message, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, OTP
 
 
 class UserAdmin(admin.ModelAdmin):
     search_fields = ['username', 'email']
-    list_display = ['username', 'email', 'full_name', 'number_phone', 'role', 'is_active']
+    list_display = ['id', 'username', 'email', 'full_name', 'number_phone', 'role', 'is_active']
     readonly_fields = ['avatar_view']
 
     def avatar_view(self, user):
@@ -58,6 +58,10 @@ class SupplierAdmin(admin.ModelAdmin):
     empty_value_display = "-Không có-"
     list_display = ['id', 'name', 'address', 'number_phone']
     search_fields = ['name']
+    readonly_fields = ['logo_view']
+
+    def logo_view(self, supplier):
+        return mark_safe(f"<img src={supplier.logo.url} width='150' />")
 
 
 class ProductInlineDiscountAdmin(admin.TabularInline):
@@ -193,5 +197,6 @@ admin_site.register(Conversation)
 admin_site.register(Message)
 admin_site.register(LoyaltyPoint, LoyaltyPointAdmin)
 admin_site.register(LoyaltyPointHistory, LoyaltyPointHistoryAdmin)
+admin_site.register(OTP)
 
 admin_site.register(AccessToken)

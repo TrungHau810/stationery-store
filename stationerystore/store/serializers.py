@@ -1,11 +1,10 @@
-from cloudinary.provisioning import users
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers, status
-from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 
 from store.models import Category, Supplier, Product, Review, User, Order, OrderDetail, Payment, Discount, GoodsReceipt, \
-    GoodsReceiptDetail, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory
+    GoodsReceiptDetail, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, CartItem, Cart, OTP
 from store.utils import vnpay
 
 
@@ -13,6 +12,9 @@ class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+
+    def create(self, validated_data):
+        return Category.objects.create(**validated_data)
 
 
 class ProductImageSerializer(ModelSerializer):
@@ -63,6 +65,7 @@ class UserSerializer(ModelSerializer):
         data = validated_data.copy()
         user = User(**data)
         user.set_password(validated_data['password'])
+        user.is_active = False
         user.save()
 
         LoyaltyPoint.objects.create(user=user, total_point=0)
@@ -109,6 +112,7 @@ class ReviewSerializer(ModelSerializer):
 
 class OrderDetailSerializer(ModelSerializer):
     product_id = serializers.IntegerField(write_only=True)
+    product = ProductSerializer(read_only=True)
 
     class Meta:
         model = OrderDetail
@@ -170,9 +174,7 @@ class OrderSerializer(ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        # Điểm hiện có của khách hàng
         use_loyalty_point = user.loyaltypoint.total_point
-        # Điểm có thể sử dụng (làm tròn xuống bội số của 1000)
         redeem_point = (use_loyalty_point // 1000) * 1000
         if redeem_point < 0:
             raise serializers.ValidationError("Điểm sử dụng không hợp lệ.")
@@ -182,61 +184,50 @@ class OrderSerializer(ModelSerializer):
             raise serializers.ValidationError("Điểm sử dụng không được lớn hơn tổng tiền thanh toán.")
         validated_data['total_price'] -= redeem_point
         order_details = validated_data.pop('order_details', [])
-        # Tạo đơn hàng
-        order = Order.objects.create(user=user, **validated_data)
-        # Cập nhật số lượng các sản phẩm trong kho
-        for detail in order_details:
-            OrderDetail.objects.create(order=order, **detail)
-            # Cập nhật số lượng sản phẩm trong kho
-            product = Product.objects.get(pk=detail["product_id"])
-            product.quantity -= detail["quantity"]
-            product.save()
 
-        # Tính điểm thưởng
-        points_earned = int(order.total_price) * 0.01  # Tích lũy 1% giá trị đơn hàng
-        # Nếu có điểm thưởng
-        if points_earned > 0:
-            user.loyaltypoint.total_point = user.loyaltypoint.total_point - redeem_point + points_earned
-            user.loyaltypoint.save()
+        with transaction.atomic():
+            # tạo đơn hàng trước
+            order = Order.objects.create(user=user, **validated_data)
 
-            # Ghi lại lịch sử điểm thưởng
-            LoyaltyPointHistory.objects.create(
-                user=user,
-                point=int(points_earned),
-                type=LoyaltyPointHistory.Type.EARN,
-                order=order
-            )
+            for detail in order_details:
+                # dùng select_for_update để khóa bản ghi product
+                product = Product.objects.select_for_update().get(pk=detail["product_id"])
+                if product.quantity < detail["quantity"]:
+                    raise serializers.ValidationError(f"Sản phẩm {product.name} không đủ số lượng.")
 
-        # Nếu có sử dụng điểm thưởng
-        if(redeem_point > 0):
-            LoyaltyPointHistory.objects.create(
-                user=user,
-                point=redeem_point,
-                type=LoyaltyPointHistory.Type.REDEMP,
-                order=order
-            )
+                product.quantity -= detail["quantity"]
+                product.save()
+
+                OrderDetail.objects.create(order=order, **detail)
+
+            # tính điểm thưởng
+            points_earned = int(order.total_price) * 0.01
+            if points_earned > 0:
+                user.loyaltypoint.total_point = user.loyaltypoint.total_point - redeem_point + points_earned
+                user.loyaltypoint.save()
+                LoyaltyPointHistory.objects.create(
+                    user=user,
+                    point=int(points_earned),
+                    type=LoyaltyPointHistory.Type.EARN,
+                    order=order
+                )
+
+            if redeem_point > 0:
+                LoyaltyPointHistory.objects.create(
+                    user=user,
+                    point=redeem_point,
+                    type=LoyaltyPointHistory.Type.REDEEM,
+                    order=order
+                )
+
         return order
 
-
 class PaymentSerializer(ModelSerializer):
+    method = serializers.CharField(required=False)  # Thêm trường method để chọn phương thức
+
     class Meta:
         model = Payment
         fields = '__all__'
-
-    # def create(self, validated_data):
-    #     order = validated_data.get('order')
-    #     request = self.context['request']
-    #     print(order)
-    #     if not order:
-    #         raise serializers.ValidationError("Đơn hàng không được để trống.")
-    #
-    #     # Kiểm tra trạng thái đơn hàng
-    #     # if order.status != Order.Status.PAID:
-    #     #     raise serializers.ValidationError("Chỉ có thể thanh toán cho đơn hàng đã thanh toán.")
-    #
-    #     return Response(
-    #         vnpay.create_vnpay_url(request, order), status=status.HTTP_200_OK
-    #     )
 
 
 class DiscountSerializer(ModelSerializer):
@@ -259,4 +250,32 @@ class GoodsReceiptSerializer(ModelSerializer):
 class GoodsReceiptDetailSerializer(ModelSerializer):
     class Meta:
         model = GoodsReceiptDetail
+        fields = '__all__'
+
+
+class CartItemSerializer(ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity']
+
+
+class CartSerializer(ModelSerializer):
+    items = CartItemSerializer(many=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'items']
+        read_only_fields = ['user']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        cart = Cart.objects.create(user=user, **validated_data)
+        return cart
+
+
+class OTPSerializer(serializers.Serializer):
+    class Meta:
+        model = OTP
         fields = '__all__'
