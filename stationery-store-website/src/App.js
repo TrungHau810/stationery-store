@@ -1,57 +1,56 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { Container } from 'react-bootstrap';
+import './App.css';
 import Home from './components/Home';
 import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
-import ProductDetail from './components/ProductDetail';
 import Login from './components/Login';
-import Register from './components/Register';
-import { MyCartContext, MyUserContext } from './configs/Context';
-import MyUserReducer from './reducers/MyUserReducer';
 import { useReducer } from 'react';
-import Profile from './components/Profile';
-import MyCartReducer from './reducers/MyCartReducer';
+import MyUserReducer from './reducers/MyUserReducer';
+import { MyCartContext, MyUserContext, SearchProvider } from './configs/Contexts';
 import Cart from './components/Cart';
+import 'sweetalert2/dist/sweetalert2.min.css';
+import Profile from './components/Profile';
+import ProductDetail from './components/ProductDetail';
+import Purchase from './components/Purchase';
+import OrderDetail from './components/OrderDetail';
 import LoyaltyPoint from './components/LoyaltyPoint';
-import PurchaseHistory from './components/PurchaseHistory';
+import CartReducer from './reducers/CartReducer';
+import ListProduct from './components/ListProduct';
+import Register from './components/Register';
+import Footer from './components/layout/Footer';
+
 
 function App() {
 
-  let [user, dispatch] = useReducer(MyUserReducer, null);
-  let [cart, setCart] = useReducer(MyCartReducer, 0);
+  const [user, dispatch] = useReducer(MyUserReducer, null);
+  const [cart, dispatchCart] = useReducer(CartReducer, 0);
+
+  console.log("Cart: ", cart);
 
   return (
     <MyUserContext.Provider value={[user, dispatch]}>
-      <MyCartContext.Provider value={[cart, setCart]}>
+      <MyCartContext.Provider value={[cart, dispatchCart]}>
         <BrowserRouter>
-
           <Header />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path='/login' element={<Login />} />
+            <Route path='/register' element={<Register />} />
 
-          <Container>
-            <Routes>
+            {user && <Route path='/profile' element={<Profile />} />}
 
-              <Route path='/' element={<Home />} />
-              <Route path='/login' element={<Login />} />
-              <Route path='/register' element={<Register />} />
-              <Route path='/profile' element={<Profile />} />
+            <Route path='/product/:id' element={<ProductDetail />} />
+            <Route path='/' element={<ListProduct />} />
 
-              <Route path='/loyalty' element={<LoyaltyPoint />} />
-
-              <Route path='/product/:id' element={<ProductDetail />} />
-              <Route path='/cart' element={<Cart />} />
-
-              <Route path='/lich-su-mua-hang' element={<PurchaseHistory />} />
-
-            </Routes>
-          </Container>
+            <Route path='/cart' element={<Cart />} />
+            <Route path='/purchase' element={<Purchase />} />
+            <Route path='/purchase/order/:id' element={<OrderDetail />} />
+            <Route path='/loyalty-point' element={<LoyaltyPoint />} />
+          </Routes>
 
           <Footer />
-
         </BrowserRouter>
       </MyCartContext.Provider>
     </MyUserContext.Provider>
-
   );
 }
 

@@ -1,166 +1,223 @@
-import { useContext, useEffect, useState } from "react";
-import { MyUserContext } from "../configs/Context";
-import { Badge, Button, Card, Col, Container, Form, Image, Nav, Row, Tab } from "react-bootstrap";
-import { Link, useNavigate } from "react-router-dom";
-
+import { useContext, useState, useEffect } from "react";
+import { MyUserContext } from "../configs/Contexts";
+import { FaEdit, FaSave } from "react-icons/fa";
+import { authApis, endpoint } from "../configs/Apis";
+import Swal from "sweetalert2";
 
 const Profile = () => {
-
-    const [user, dispatch] = useContext(MyUserContext);
+    const [user] = useContext(MyUserContext);
+    const [info, setInfo] = useState({
+        full_name: "",
+        email: "",
+        number_phone: "",
+        address: "",
+        avatar: null,
+    });
     const [loading, setLoading] = useState(false);
-    const nav = useNavigate();
-    const [time, setTime] = useState(15);
 
-    const changeInfoUser = (e) => {
-        e.preventDefault();
-        // // dispatch({ type: "UPDATE_USER", payload: info });
-    };
-
-    console.log("User in Profile:", user);
-
+    // Khởi tạo info từ user
     useEffect(() => {
-        if (!user) {
-            if (time <= 0) {
-                nav("/login");
+        if (user) {
+            setInfo({
+                full_name: user.full_name || "",
+                email: user.email || "",
+                number_phone: user.number_phone || "",
+                address: user.address || "",
+                avatar: user.avatar || null,
+            });
+        }
+    }, [user]);
+
+    const updateProfile = async () => {
+        try {
+            setLoading(true);
+
+            // Lọc ra chỉ những field thay đổi
+            const changedFields = {};
+            Object.keys(info).forEach((key) => {
+                if (key === "avatar" && info.avatar instanceof File) {
+                    changedFields[key] = info[key];
+                } else if (info[key] !== user[key]) {
+                    changedFields[key] = info[key];
+                }
+            });
+
+            if (Object.keys(changedFields).length === 0) {
+                Swal.fire({
+                    icon: "info",
+                    title: "Không có thay đổi",
+                    text: "Bạn chưa chỉnh sửa thông tin nào.",
+                });
                 return;
             }
-            const timer = setTimeout(() => setTime(prev => prev - 1), 1000);
-            return () => clearTimeout(timer); // cleanup
+
+            const formData = new FormData();
+            for (const key in changedFields) {
+                formData.append(key, changedFields[key]);
+            }
+
+            console.log("Updating profile with changed fields:", changedFields);
+
+            let response = await authApis().patch(endpoint["profile"], formData);
+
+            setInfo({
+                ...info,
+                ...response.data
+            });
+
+            Swal.fire({
+                icon: "success",
+                title: "Cập nhật thành công",
+                text: "Thông tin của bạn đã được cập nhật.",
+            });
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            Swal.fire({
+                icon: "error",
+                title: "Cập nhật thất bại",
+                text: "Có lỗi xảy ra, vui lòng thử lại.",
+            });
+        } finally {
+            setLoading(false);
         }
-    }, [time, user, nav]);
+    };
+
     return (
-        <>
-            {!user ? (
-                <Container className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: "70vh" }}>
-                    <Card className="p-4 text-center shadow-sm">
-                        <h3 className="fw-bold text-danger mb-2">Bạn chưa đăng nhập</h3>
-                        <p className="text-muted">Sẽ tự động chuyển trang sau <b>{time}</b> giây...</p>
-                        <Button variant="primary" onClick={() => nav("/login")}>Đăng nhập ngay</Button>
-                    </Card>
-                </Container>
-            ) : (
-                <Container className="mt-5">
-                    <Row className="justify-content-center">
-                        <Col md={8} lg={6}>
-                            <Card className="shadow border-0 rounded-4">
-                                <Card.Body>
-                                    {/* Avatar */}
-                                    <div className="text-center mb-4">
-                                        <Image
-                                            src={user.avatar || "https://via.placeholder.com/150"}
-                                            alt={user.full_name || "User"}
-                                            roundedCircle
-                                            style={{
-                                                width: "140px",
-                                                height: "140px",
-                                                objectFit: "cover",
-                                                border: "4px solid #0d6efd",
-                                            }}
-                                        />
-                                        <h4 className="mt-3 fw-bold">{user.full_name}</h4>
-                                        <p className="text-muted">@{user.username}</p>
-                                        <Badge bg="info" className="text-white px-3 py-2 rounded-pill">
-                                            {user.role === "customer" ? "Khách hàng" : user.role === "admin" ? "Quản trị viên" :
-                                                user.role === "staff" ? "Nhân viên" : "Quản lý"}
-                                        </Badge>
-                                    </div>
+        <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6">
+            <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl p-8 transition-all duration-300 hover:shadow-2xl">
+                {/* Header */}
+                <div className="flex flex-col items-center text-center mb-8">
+                    <div className="relative group">
+                        <img
+                            src={
+                                info.avatar instanceof File
+                                    ? URL.createObjectURL(info.avatar)
+                                    : info.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                            }
+                            alt="Avatar"
+                            className="w-28 h-28 rounded-full object-cover border-4 border-blue-500 shadow-md transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <label className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition flex items-center justify-center">
+                            <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) =>
+                                    setInfo({ ...info, avatar: e.target.files[0] })
+                                }
+                            />
+                            <FaEdit size={16} />
+                        </label>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mt-4">
+                        {info.full_name || "Người dùng"}
+                    </h2>
+                    <p className="text-gray-500">{info.email}</p>
+                </div>
 
-                                    <Tab.Container defaultActiveKey="info">
-                                        <Nav variant="tabs" className="justify-content-center mb-3">
-                                            <Nav.Item>
-                                                <Nav.Link eventKey="info">Thông tin cá nhân</Nav.Link>
-                                            </Nav.Item>
-                                            <Nav.Item>
-                                                <Nav.Link eventKey="password">Đổi mật khẩu</Nav.Link>
-                                            </Nav.Item>
-                                        </Nav>
+                {/* Form */}
+                <div className="space-y-5">
+                    {/* Full Name */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Họ và tên
+                        </label>
+                        <input
+                            type="text"
+                            name="full_name"
+                            value={info.full_name}
+                            onChange={(e) =>
+                                setInfo({ ...info, full_name: e.target.value })
+                            }
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                        />
+                    </div>
 
-                                        <Tab.Content>
-                                            <Tab.Pane eventKey="info">
-                                                <Form onSubmit={changeInfoUser}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Họ và tên</Form.Label>
-                                                        <Form.Control
-                                                            type="text"
-                                                            name="full_name"
-                                                            value={user.full_name || ""}
-                                                        // onChange={handleChange}
-                                                        />
-                                                    </Form.Group>
+                    {/* Email */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                        </label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={info.email}
+                            readOnly
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                        />
+                    </div>
 
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Email</Form.Label>
-                                                        <Form.Control
-                                                            type="email"
-                                                            name="email"
-                                                            value={user.email || ""}
-                                                        // onChange={handleChange}
-                                                        />
-                                                    </Form.Group>
+                    {/* Phone */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Số điện thoại
+                        </label>
+                        <input
+                            type="text"
+                            name="number_phone"
+                            value={info.number_phone}
+                            onChange={(e) =>
+                                setInfo({ ...info, number_phone: e.target.value })
+                            }
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                        />
+                    </div>
 
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Số điện thoại</Form.Label>
-                                                        <Form.Control
-                                                            type="text"
-                                                            name="number_phone"
-                                                            value={user.number_phone || ""}
-                                                        // onChange={handleChange}
-                                                        />
-                                                    </Form.Group>
+                    {/* Address */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Địa chỉ
+                        </label>
+                        <input
+                            type="text"
+                            name="address"
+                            value={info.address}
+                            onChange={(e) =>
+                                setInfo({ ...info, address: e.target.value })
+                            }
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                        />
+                    </div>
 
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Địa chỉ</Form.Label>
-                                                        <Form.Control
-                                                            type="text"
-                                                            name="address"
-                                                            value={user.address || ""}
-                                                        // onChange={handleChange}
-                                                        />
-                                                    </Form.Group>
-
-                                                    <div className="text-center">
-                                                        <Button type="submit" variant="primary" className="px-5 rounded-pill" disabled={loading}>
-                                                            {loading ? "Đang lưu..." : "Lưu thay đổi"}
-                                                        </Button>
-                                                    </div>
-                                                </Form>
-                                            </Tab.Pane>
-
-                                            {/* Tab Đổi mật khẩu */}
-                                            <Tab.Pane eventKey="password">
-                                                <Form>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Mật khẩu hiện tại</Form.Label>
-                                                        <Form.Control type="password" placeholder="Nhập mật khẩu hiện tại" />
-                                                    </Form.Group>
-
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Mật khẩu mới</Form.Label>
-                                                        <Form.Control type="password" placeholder="Nhập mật khẩu mới" />
-                                                    </Form.Group>
-
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Xác nhận mật khẩu mới</Form.Label>
-                                                        <Form.Control type="password" placeholder="Nhập lại mật khẩu mới" />
-                                                    </Form.Group>
-
-                                                    <div className="text-center">
-                                                        <Button variant="warning" className="px-5 rounded-pill">Đổi mật khẩu</Button>
-                                                    </div>
-                                                </Form>
-                                            </Tab.Pane>
-                                        </Tab.Content>
-                                    </Tab.Container>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    <Link to="/loyalty">Điểm thành viên</Link>
-                </Container>
-            )}
-        </>
+                    {/* Button Save */}
+                    <div className="flex justify-end">
+                        <button
+                            onClick={updateProfile}
+                            disabled={loading}
+                            className={`flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300 
+                ${loading ? "cursor-not-allowed opacity-70" : ""}`}
+                        >
+                            {loading ? (
+                                <svg
+                                    className="animate-spin h-5 w-5 text-white"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                    ></path>
+                                </svg>
+                            ) : (
+                                <FaSave className="transition-transform duration-200 hover:scale-110" />
+                            )}
+                            <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
-}
+};
 
 export default Profile;

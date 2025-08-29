@@ -1,114 +1,131 @@
-import { useContext, useEffect, useState } from "react";
-import { Badge, Button, Container, Image, Nav, Navbar, NavDropdown } from "react-bootstrap";
+import { useState, useEffect, useContext } from "react";
+import {
+    Bars3Icon,
+    ShoppingCartIcon,
+    ChevronRightIcon,
+    MagnifyingGlassIcon,
+} from "@heroicons/react/24/solid";
 import Apis, { endpoint } from "../../configs/Apis";
-import { Link } from "react-router-dom";
-import { MyCartContext, MyUserContext } from "../../configs/Context";
+import { useNavigate } from "react-router-dom";
+import { MyCartContext, MyUserContext } from "../../configs/Contexts";
 
 const Header = () => {
-
     const [categories, setCategories] = useState([]);
     const [user, dispatch] = useContext(MyUserContext);
-    const [cart, setCart] = useContext(MyCartContext);
+    const [showCategories, setShowCategories] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [cart,] = useContext(MyCartContext);
+    const nav = useNavigate();
 
     const loadCategories = async () => {
-        let response = await Apis.get(endpoint['category']);
-        setCategories(response.data);
-    }
+        try {
+            const res = await Apis.get(endpoint["category"]);
+            setCategories(res.data);
+        } catch (err) {
+            console.error("Lỗi load categories:", err);
+        }
+    };
 
     useEffect(() => {
         loadCategories();
     }, []);
 
     return (
-        <>
-            <Navbar expand="lg" bg="light" className="shadow-sm sticky-top">
-                <Container>
-                    <Navbar.Brand as={Link} to="/" className="fw-bold text-primary fs-4">TH Store</Navbar.Brand>
+        <header className="sticky top-0 z-50 shadow-md w-full bg-white">
+            {/* Top bar */}
+            <div className="bg-blue-100 flex items-center justify-between px-4 sm:px-6 md:px-12 py-3 shadow-sm">
+                {/* Logo */}
+                <button className="text-xl font-extrabold text-blue-600" onClick={() => nav("/")}>
+                    TH Stationery
+                </button>
 
-                    <Navbar.Toggle aria-controls="main-navbar" />
-                    <Navbar.Collapse id="main-navbar">
-                        {/* Menu chính */}
-                        <Nav className="me-auto">
-                            <Nav.Link as={Link} to="/">Trang chủ</Nav.Link>
-                            <Nav.Link as={Link} to="/lich-su-mua-hang/">Lịch sử mua hàng</Nav.Link>
-                            <NavDropdown title="Danh mục" id="nav-categories">
-                                {categories.map((category) => (
-                                    <NavDropdown.Item
-                                        as={Link}
-                                        key={category.id}
-                                        to={`/?category=${category.id}`}
-                                    >
-                                        {category.name}
-                                    </NavDropdown.Item>
-                                ))}
-                            </NavDropdown>
-                        </Nav>
+                {/* Search bar */}
+                <div className="hidden md:flex flex-1 mx-4">
+                    <div className="relative w-full">
+                        <input
+                            type="text"
+                            placeholder="Tìm sản phẩm..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    nav(`/?keyword=${searchTerm}`);
+                                }
+                            }}
+                            className="w-full px-4 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
+                        />
+                        <button
+                            onClick={() => nav(`/?keyword=${searchTerm}`)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-500"
+                        >
+                            <MagnifyingGlassIcon className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
 
-                        {/* Giỏ hàng */}
-                        <Nav className="me-3">
-                            <Nav.Link as={Link} to="/cart" className="position-relative">
-                                <i className="fas fa-shopping-cart fs-5"></i>
-                                {cart > 0 && (
-                                    <Badge
-                                        pill
-                                        bg="danger"
-                                        className="position-absolute top-0 start-100 translate-middle"
-                                    >
-                                        {cart}
-                                    </Badge>
-                                )}
-                            </Nav.Link>
-                        </Nav>
+                {/* User & Cart */}
+                <div className="flex items-center space-x-2 sm:space-x-4 text-sm font-medium">
+                    {user ? (
+                        <>
+                            <button className="flex items-center space-x-2 hover:opacity-80" onClick={() => nav("/profile")}>
+                                <img src={user.avatar} alt={user.full_name} className="h-8 w-8 rounded-full" />
+                                <span className="hidden sm:inline">{user.full_name}</span>
+                            </button>
+                            <button onClick={() => dispatch({ type: "logout" })} className="hover:text-blue-500">Đăng xuất</button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={() => nav("/login")} className="hover:text-blue-500">Đăng nhập</button>
+                            <button onClick={() => nav("/register")} className="hover:text-blue-500">Đăng ký</button>
+                        </>
+                    )}
+                    <button className="relative flex items-center space-x-1 hover:text-blue-500" onClick={() => nav("/cart")}>
+                        <ShoppingCartIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">Giỏ hàng</span>
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                            0
+                        </span>
+                    </button>
+                </div>
+            </div>
 
-                        {/* User info */}
-                        {user ? (
-                            <Nav>
-                                <NavDropdown
-                                    title={
-                                        <span className="d-flex align-items-center">
-                                            <Image
-                                                src={user.avatar}
-                                                roundedCircle
-                                                width={40}
-                                                height={40}
-                                                className="me-2 border"
-                                            />
-                                            <span>{user.full_name}</span>
-                                        </span>
-                                    }
-                                    id="user-dropdown"
-                                    align="end"
+            {/* Navigation / Menu */}
+            <nav className="bg-blue-50 px-4 sm:px-6 md:px-12 py-2 flex items-center space-x-2 sm:space-x-4 overflow-x-auto shadow-sm">
+                {/* Danh mục sản phẩm */}
+                <div className="relative">
+                    <button
+                        className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-100 hover:bg-blue-200 transition"
+                        onClick={() => setShowCategories(!showCategories)}
+                    >
+                        <Bars3Icon className="h-5 w-5 text-blue-600" />
+                        <span className="font-medium text-blue-700 text-sm sm:text-base">Danh mục sản phẩm</span>
+                    </button>
+
+                    {showCategories && (
+                        <ul className="absolute top-full mt-2 left-0 w-56 sm:w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                            {categories.map((c) => (
+                                <li
+                                    key={c.id}
+                                    className="flex justify-between items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
                                 >
-                                    <NavDropdown.Item as={Link} to="/profile">
-                                        Thông tin cá nhân
-                                    </NavDropdown.Item>
-                                    <NavDropdown.Item as={Link} to="/loyalty">
-                                        Lịch sử điểm
-                                    </NavDropdown.Item>
-                                    <NavDropdown.Divider />
-                                    <NavDropdown.Item
-                                        onClick={() => dispatch({ type: "logout" })}
-                                        className="text-danger"
-                                    >
-                                        Đăng xuất
-                                    </NavDropdown.Item>
-                                </NavDropdown>
-                            </Nav>
-                        ) : (
-                            <div>
-                                <Button as={Link} to="/login" variant="outline-primary" className="me-2">
-                                    Đăng nhập
-                                </Button>
-                                <Button as={Link} to="/register" variant="primary">
-                                    Đăng ký
-                                </Button>
-                            </div>
-                        )}
-                    </Navbar.Collapse>
-                </Container>
-            </Navbar>
-        </>
+                                    <div className="flex items-center space-x-2">
+                                        <span>{c.icon}</span>
+                                        <span className="text-gray-700">{c.name}</span>
+                                    </div>
+                                    <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* Các menu khác */}
+                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base">Sản phẩm</button>
+                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/purchase")}>Lịch sử mua hàng</button>
+                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/loyalty-point")}>Lịch sử tích điểm</button>
+            </nav>
+        </header>
     );
-}
+};
 
 export default Header;

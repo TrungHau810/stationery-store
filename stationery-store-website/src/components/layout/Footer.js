@@ -1,50 +1,48 @@
-import { Container, Row, Col, Nav } from 'react-bootstrap';
+import { FaFacebookF, FaInstagram, FaTwitter } from "react-icons/fa";
 
 const Footer = () => {
-  return (
-    <footer className="bg-dark text-white mt-5 py-5">
-      <Container >
-        <Row>
-          {/* Thông tin cửa hàng */}
-          <Col md={4} className="mb-4">
-            <h5 className="mb-3">Cửa hàng Văn phòng phẩm - TH Store</h5>
-            <p>
-              Cung cấp các sản phẩm văn phòng phẩm chất lượng cao, từ bút, giấy đến dụng cụ học tập.
-            </p>
-              <p><strong>Địa chỉ:</strong> Phường Long Bình, Thành phố Thủ Đức, Thành phố Hồ Chí Minh</p>
-              <p><strong>Email:</strong> tthau2004@gmail.com</p>
-              <p><strong>Điện thoại:</strong> (028) 1234-5678</p>
-          </Col>
+    return (
+        <footer className="bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-inner">
+            <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
+                <div className="space-y-4">
+                    <h3 className="text-2xl font-extrabold tracking-wide mb-2">TH Stationery</h3>
+                    <p className="text-sm text-blue-100 leading-relaxed">
+                        Chúng tôi mang đến văn phòng phẩm chất lượng cao, phục vụ học tập và công việc.
+                        Sản phẩm tốt nhất, giá cả hợp lý.
+                    </p>
+                    <div className="flex space-x-4 mt-2">
+                        <a href="#" className="hover:text-white transition-colors duration-300"><FaFacebookF /></a>
+                        <a href="#" className="hover:text-white transition-colors duration-300"><FaInstagram /></a>
+                        <a href="#" className="hover:text-white transition-colors duration-300"><FaTwitter /></a>
+                    </div>
+                </div>
 
-          {/* Liên kết nhanh */}
-          <Col md={4} className="mb-4">
-            <h5 className="mb-3">Liên kết nhanh</h5>
-            <Nav className="flex-column">
-              <Nav.Link href="/" className="text-white p-0 mb-2">Trang chủ</Nav.Link>
-              <Nav.Link href="/products" className="text-white p-0 mb-2">Sản phẩm</Nav.Link>
-              <Nav.Link href="/about" className="text-white p-0 mb-2">Giới thiệu</Nav.Link>
-              <Nav.Link href="/contact" className="text-white p-0 mb-2">Liên hệ</Nav.Link>
-            </Nav>
-          </Col>
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold mb-2">Hỗ trợ</h3>
+                    <ul className="space-y-2 text-sm text-blue-100">
+                        <li><a href="/about" className="hover:text-white transition-colors duration-300">Về chúng tôi</a></li>
+                        <li><a href="/faq" className="hover:text-white transition-colors duration-300">Câu hỏi thường gặp</a></li>
+                        <li><a href="/policy" className="hover:text-white transition-colors duration-300">Chính sách bảo mật</a></li>
+                        <li><a href="/terms" className="hover:text-white transition-colors duration-300">Điều khoản sử dụng</a></li>
+                    </ul>
+                </div>
 
-          {/* Thông tin bổ sung */}
-          <Col md={4} className="mb-4">
-            <h5 className="mb-3">Hỗ trợ khách hàng</h5>
-            <Nav className="flex-column">
-              <Nav.Link href="/faq" className="text-white p-0 mb-2">Câu hỏi thường gặp</Nav.Link>
-              <Nav.Link href="/shipping" className="text-white p-0 mb-2">Chính sách vận chuyển</Nav.Link>
-              <Nav.Link href="/returns" className="text-white p-0 mb-2">Chính sách đổi trả</Nav.Link>
-            </Nav>
-          </Col>
-        </Row>
-        <Row className="mt-4">
-          <Col className="text-center">
-            <p className="mb-0">&copy; {new Date().getFullYear()} TH Store. All rights reserved.</p>
-          </Col>
-        </Row>
-      </Container>
-    </footer>
-  );
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold mb-2">Liên hệ</h3>
+                    <ul className="space-y-2 text-sm text-blue-100">
+                        <li>Email: <a href="mailto:tthau2004@gmail.com" className="hover:text-white transition-colors duration-300">tthau2004@gmail.com</a></li>
+                        <li>Điện thoại: <a href="tel:0123456789" className="hover:text-white transition-colors duration-300">0123 456 789</a></li>
+                        <li>Địa chỉ: 123 Đường ABC, Quận 1, TP.HCM</li>
+                    </ul>
+                </div>
+            </div>
+
+            {/* Bản quyền */}
+            <div className="border-t border-blue-500 text-center py-4 text-sm text-blue-100 mt-6">
+                © {new Date().getFullYear()} TH Stationery. All rights reserved.
+            </div>
+        </footer>
+    );
 };
 
 export default Footer;
