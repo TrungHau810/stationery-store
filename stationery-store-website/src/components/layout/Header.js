@@ -30,6 +30,8 @@ const Header = () => {
         loadCategories();
     }, []);
 
+    const role = user?.role;
+
     return (
         <header className="sticky top-0 z-50 shadow-md w-full bg-white">
             {/* Top bar */}
@@ -68,10 +70,10 @@ const Header = () => {
                     {user ? (
                         <>
                             <button className="flex items-center space-x-2 hover:opacity-80" onClick={() => nav("/profile")}>
-                                <img src={user.avatar} alt={user.full_name} className="h-8 w-8 rounded-full" />
-                                <span className="hidden sm:inline">{user.full_name}</span>
+                                <img src={user.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt={user.full_name} className="h-8 w-8 rounded-full" />
+                                <span className="hidden sm:inline">{user.full_name || "Người dùng"}</span>
                             </button>
-                            <button onClick={() => dispatch({ type: "logout" })} className="hover:text-blue-500">Đăng xuất</button>
+                            <button onClick={() => { dispatch({ type: "logout" }); nav("/"); }} className="hover:text-blue-500">Đăng xuất</button>
                         </>
                     ) : (
                         <>
@@ -79,13 +81,15 @@ const Header = () => {
                             <button onClick={() => nav("/register")} className="hover:text-blue-500">Đăng ký</button>
                         </>
                     )}
-                    <button className="relative flex items-center space-x-1 hover:text-blue-500" onClick={() => nav("/cart")}>
-                        <ShoppingCartIcon className="h-5 w-5" />
-                        <span className="hidden sm:inline">Giỏ hàng</span>
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                            0
-                        </span>
-                    </button>
+                    {!user || user?.role === "customer" ? (
+                        <button className="relative flex items-center space-x-1 hover:text-blue-500" onClick={() => nav("/cart")}>
+                            <ShoppingCartIcon className="h-5 w-5" />
+                            <span className="hidden sm:inline">Giỏ hàng</span>
+                            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                                0
+                            </span>
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
@@ -121,8 +125,33 @@ const Header = () => {
 
                 {/* Các menu khác */}
                 <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base">Sản phẩm</button>
-                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/purchase")}>Lịch sử mua hàng</button>
-                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/loyalty-point")}>Lịch sử tích điểm</button>
+                {/* Chỉ customer mới thấy lịch sử mua hàng và tích điểm */}
+                {(role === "customer" || !role) && (
+                    <>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/purchase")}>Lịch sử mua hàng</button>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/loyalty-point")}>Lịch sử tích điểm</button>
+                    </>
+                )}
+                {/* Staff menu */}
+                {role === "staff" && (
+                    <>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff-dashboard")}>
+                            Trang nhân viên
+                        </button>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff/orders")}>
+                            Danh sách đơn hàng
+                        </button>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff/revenue")}>
+                            Báo cáo doanh thu
+                        </button>
+                    </>
+                )}
+                {/* Manager menu */}
+                {role === "manager" && (
+                    <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/manager-dashboard")}>
+                        Trang quản lý
+                    </button>
+                )}
             </nav>
         </header>
     );

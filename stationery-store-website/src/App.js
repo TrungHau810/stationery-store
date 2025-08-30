@@ -14,17 +14,16 @@ import Purchase from './components/Purchase';
 import OrderDetail from './components/OrderDetail';
 import LoyaltyPoint from './components/LoyaltyPoint';
 import CartReducer from './reducers/CartReducer';
-import ListProduct from './components/ListProduct';
+// import ListProduct from './components/ListProduct';
 import Register from './components/Register';
 import Footer from './components/layout/Footer';
+import OrderList from './components/staff/OrderList';
+import RevenueStore from './components/staff/RevenueStore';
 
 
 function App() {
-
   const [user, dispatch] = useReducer(MyUserReducer, null);
   const [cart, dispatchCart] = useReducer(CartReducer, 0);
-
-  console.log("Cart: ", cart);
 
   return (
     <MyUserContext.Provider value={[user, dispatch]}>
@@ -35,18 +34,38 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path='/login' element={<Login />} />
             <Route path='/register' element={<Register />} />
+            <Route path='/profile' element={<Profile />} />
 
-            {user && <Route path='/profile' element={<Profile />} />}
+            {/* Customer routes */}
+            {(user?.role === "customer" || !user) && (
+              <>
+                <Route path='/product/:id' element={<ProductDetail />} />
+                {/* <Route path='/products' element={<ListProduct />} /> */}
+                <Route path='/cart' element={<Cart />} />
+                <Route path='/purchase' element={<Purchase />} />
+                <Route path='/purchase/order/:id' element={<OrderDetail />} />
+                <Route path='/loyalty-point' element={<LoyaltyPoint />} />
+              </>
+            )}
 
-            <Route path='/product/:id' element={<ProductDetail />} />
-            <Route path='/' element={<ListProduct />} />
+            {/* Staff routes */}
+            {user?.role === "staff" && (
+              <>
+                {/* <Route path='/staff-dashboard' element={<StaffDashboard />} /> */}
+                <Route path='/staff/orders' element={<OrderList />} />
+                <Route path='/staff/revenue' element={<RevenueStore />} />
+                {/* Thêm các route staff ở đây */}
+              </>
+            )}
 
-            <Route path='/cart' element={<Cart />} />
-            <Route path='/purchase' element={<Purchase />} />
-            <Route path='/purchase/order/:id' element={<OrderDetail />} />
-            <Route path='/loyalty-point' element={<LoyaltyPoint />} />
+            {/* Manager routes */}
+            {user?.role === "manager" && (
+              <>
+                {/* <Route path='/manager-dashboard' element={<ManagerDashboard />} /> */}
+                {/* Thêm các route manager ở đây */}
+              </>
+            )}
           </Routes>
-
           <Footer />
         </BrowserRouter>
       </MyCartContext.Provider>

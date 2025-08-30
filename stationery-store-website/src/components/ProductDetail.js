@@ -4,14 +4,15 @@ import Apis, { endpoint } from "../configs/Apis";
 import DiscountCard from "./layout/DiscountCard";
 import { addToCart } from "../utils/Cart";
 import { MyUserContext } from "../configs/Contexts";
-import Swal from "sweetalert2";
+import RatingSummary from "./layout/RatingSummary";
+import ReviewList from "./layout/ReviewList";
 
 const ProductDetail = () => {
-    const [user,] = useContext(MyUserContext);
+    const [user] = useContext(MyUserContext);
     const [quantity, setQuantity] = useState(1);
-    const [color, setColor] = useState("blue");
     const [product, setProduct] = useState({});
     const [discounts, setDiscounts] = useState([]);
+    const [reviews, setReviews] = useState([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const { id } = useParams();
 
@@ -19,7 +20,7 @@ const ProductDetail = () => {
         try {
             const response = await Apis.get(endpoint["product_detail"](id));
             setProduct(response.data);
-            setActiveIndex(0); // ảnh đầu tiên
+            setActiveIndex(0);
         } catch (err) {
             console.error("Lỗi fetch product detail:", err);
         }
@@ -28,26 +29,31 @@ const ProductDetail = () => {
     const fetchDiscountsOfProduct = async (id) => {
         try {
             const response = await Apis.get(endpoint["discounts_of_product"](id));
-            console.log("Discounts of product:", response.data);
             setDiscounts(response.data);
         } catch (err) {
             console.error("Lỗi fetch discount detail:", err);
         }
     };
 
+    const fetchReviewsOfProduct = async (id) => {
+        try {
+            const response = await Apis.get(endpoint["reviews_of_product"](id));
+            console.log(response.data.results[0].rating_breakdown);
+            setReviews(response.data.results);
+        } catch (err) {
+            console.error("Lỗi fetch review detail:", err);
+        }
+    };
+
     useEffect(() => {
         fetchProductDetail();
+        fetchReviewsOfProduct(id);
     }, [id]);
 
     useEffect(() => {
-        fetchDiscountsOfProduct(product.id);
+        if (product.id) fetchDiscountsOfProduct(product.id);
     }, [product.id]);
 
-    if (!product || (!product.images && !product.image)) {
-        return <p className="text-center py-10">Đang tải sản phẩm...</p>;
-    }
-
-    // Chuẩn bị mảng ảnh
     const productImages =
         product.images && product.images.length > 0
             ? product.images.map((img) => img.link)
@@ -55,30 +61,28 @@ const ProductDetail = () => {
                 ? [product.image]
                 : [];
 
-    const prevImage = () => {
+    const prevImage = () =>
         setActiveIndex((prev) =>
             prev === 0 ? productImages.length - 1 : prev - 1
         );
-    };
 
-    const nextImage = () => {
+    const nextImage = () =>
         setActiveIndex((prev) =>
             prev === productImages.length - 1 ? 0 : prev + 1
         );
-    };
 
     const activeImage = productImages[activeIndex];
 
     return (
-        <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Carousel ảnh */}
             <div className="relative">
-                <div className="w-full h-96 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
+                <div className="w-full h-96 bg-gray-100 rounded-lg mb-4 flex items-center justify-center shadow-sm">
                     {activeImage ? (
                         <img
                             src={activeImage}
                             alt={product.name}
-                            className="max-h-full max-w-full object-contain"
+                            className="max-h-full max-w-full object-contain rounded-lg"
                         />
                     ) : (
                         <span className="text-gray-400">Chưa có ảnh</span>
@@ -90,13 +94,13 @@ const ProductDetail = () => {
                     <>
                         <button
                             onClick={prevImage}
-                            className="absolute top-1/2 left-2 -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2 hover:bg-opacity-100 transition"
+                            className="absolute top-1/2 left-2 -translate-y-1/2 bg-white shadow-md rounded-full p-2 hover:bg-blue-100 transition"
                         >
                             &#8592;
                         </button>
                         <button
                             onClick={nextImage}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2 hover:bg-opacity-100 transition"
+                            className="absolute top-1/2 right-2 -translate-y-1/2 bg-white shadow-md rounded-full p-2 hover:bg-blue-100 transition"
                         >
                             &#8594;
                         </button>
@@ -110,7 +114,7 @@ const ProductDetail = () => {
                             key={idx}
                             src={img}
                             alt={`${product.name} ${idx}`}
-                            className={`w-20 h-20 rounded border cursor-pointer object-contain ${idx === activeIndex ? "border-blue-500" : "border-gray-300"
+                            className={`w-20 h-20 rounded border cursor-pointer object-contain transition ${idx === activeIndex ? "border-blue-500" : "border-gray-300"
                                 }`}
                             onClick={() => setActiveIndex(idx)}
                         />
@@ -120,19 +124,33 @@ const ProductDetail = () => {
 
             {/* Thông tin sản phẩm */}
             <div>
-                <h1 className="text-2xl font-bold mb-2">{product.name}</h1>
+                <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+
+                {/* Rating */}
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="text-yellow-400 text-lg">
+                        {Array.from({ length: 5 }, (_, i) => (
+                            <span
+                                key={i}
+                                className={i < Math.round(product.average_rating) ? "text-yellow-400" : "text-gray-300"}
+                            >
+                                ★
+                            </span>
+                        ))}
+                    </div>
+                    <span className="text-sm text-gray-500">
+                        {product.count_reviews || 0} đánh giá
+                    </span>
+                </div>
+
+                {/* Thương hiệu + tình trạng */}
                 <p className="text-gray-600 mb-2">
-                    Thương hiệu: <span className="text-blue-600">{product.brand}</span> |{" "}
-                    <span className="ml-1">
-                        Tình trạng:{" "}
-                        <span className="text-green-600">
-                            {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
-                        </span>
+                    Thương hiệu:{" "}
+                    <span className="text-blue-600">{product.brand}</span> |{" "}
+                    <span className={`ml-1 font-semibold ${product.quantity > 0 ? "text-green-600" : "text-red-500"}`}>
+                        {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
                     </span>
                 </p>
-                <span className="text-sm pb-2">
-                    Số lượng còn lại: <span className="text-green-600">{product.quantity}</span>
-                </span>
                 <p className="text-sm text-gray-500 mb-4">Mã sản phẩm: {product.id}</p>
 
                 {/* Giá */}
@@ -143,11 +161,8 @@ const ProductDetail = () => {
                     <span className="line-through text-gray-400">
                         {(Number(product.price) * 1.2).toLocaleString("vi-VN")}₫
                     </span>
-                    <span className="bg-red-500 text-white text-sm px-2 py-1 rounded">
-                        Tiết kiệm{" "}
-                        {((Number(product.price) * 1.2 - Number(product.price)).toLocaleString(
-                            "vi-VN"
-                        ))}₫
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
+                        -20%
                     </span>
                 </div>
 
@@ -174,8 +189,10 @@ const ProductDetail = () => {
                 {/* Nút hành động */}
                 <div className="flex gap-3 mb-6">
                     {product.quantity > 0 ? (
-                        <button className="flex-1 border-2 border-blue-500 text-blue-500 py-3 rounded hover:bg-blue-50 transition"
-                            onClick={() => addToCart({ user, product, quantity })}>
+                        <button
+                            className="flex-1 border-2 border-blue-500 text-blue-500 py-3 rounded hover:bg-blue-50 transition"
+                            onClick={() => addToCart({ user, product, quantity })}
+                        >
                             Thêm vào giỏ
                         </button>
                     ) : (
@@ -194,31 +211,46 @@ const ProductDetail = () => {
                     )}
                 </div>
 
-                <div className="bg-gray-50 border p-4 rounded">
-                    <p className="font-semibold mb-2">Mã giảm giá khi mua sản phẩm</p>
-                    {discounts
-                        .filter((discount) => {
-                            const now = new Date();
-                            const start = new Date(discount.start_date);
-                            const end = new Date(discount.end_date);
-                            return now >= start && now <= end;
-                        })
-                        .map((discount) => (
-                            <DiscountCard key={discount.id} discount={discount} />
-                        ))
-                    }
-                    {discounts.length === 0 && (<p className="text-gray-500">Không có mã giảm giá nào</p>)}
+                {/* Giảm giá */}
+                <div className="bg-gray-50 border p-4 rounded mb-6">
+                    <p className="font-semibold mb-2">Mã giảm giá</p>
+                    {discounts.length > 0 ? (
+                        discounts
+                            .filter((discount) => {
+                                const now = new Date();
+                                const start = new Date(discount.start_date);
+                                const end = new Date(discount.end_date);
+                                return now >= start && now <= end;
+                            })
+                            .map((discount) => (
+                                <DiscountCard key={discount.id} discount={discount} />
+                            ))
+                    ) : (
+                        <p className="text-gray-500">Không có mã giảm giá nào</p>
+                    )}
                 </div>
 
+                {/* Mô tả */}
                 {product.description && (
                     <div className="mt-6 bg-gray-50 p-4 rounded border">
                         <h2 className="text-xl font-semibold mb-2">Mô tả sản phẩm</h2>
                         <div
-                            className="text-gray-700 text-sm"
+                            className="text-gray-700 text-sm leading-relaxed"
                             dangerouslySetInnerHTML={{ __html: product.description }}
                         />
                     </div>
                 )}
+            </div>
+
+            {/* Phần đánh giá */}
+            <div className="col-span-2 mt-10">
+                <h2 className="text-2xl font-semibold mb-4">Đánh giá sản phẩm</h2>
+                <RatingSummary
+                    average={product.average_rating || 0}
+                    count={product.count_reviews || 0}
+                    breakdown={product.rating_breakdown || {}}
+                />
+                <ReviewList reviews={reviews} />
             </div>
         </div>
     );

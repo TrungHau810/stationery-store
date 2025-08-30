@@ -7,7 +7,7 @@ import { addToCart } from "../../utils/Cart";
 
 const ProductCard = ({ item }) => {
 
-  const [user, ] = useContext(MyUserContext);
+  const [user,] = useContext(MyUserContext);
   const nav = useNavigate();
 
   return (
@@ -31,6 +31,40 @@ const ProductCard = ({ item }) => {
         <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition">
           {item.name}
         </h3>
+
+        <div className="flex items-center gap-1 mb-2">
+          {Array.from({ length: 5 }, (_, i) => {
+            const full = i + 1 <= Math.floor(item.avarge_rating); // sao đầy
+            const half = !full && i < item.avarge_rating;          // sao nửa
+            return (
+              <svg
+                key={i}
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                className="w-5 h-5"
+                fill={full ? "gold" : half ? "url(#half)" : "lightgray"}
+                stroke="currentColor"
+              >
+                <defs>
+                  <linearGradient id="half">
+                    <stop offset="50%" stopColor="gold" />
+                    <stop offset="50%" stopColor="lightgray" />
+                  </linearGradient>
+                </defs>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 
+             9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                />
+              </svg>
+            );
+          })}
+          <span className="text-sm text-gray-600">
+            {item.avarge_rating ? item.avarge_rating.toFixed(1) : "0.0"} ({item.count_reviews || 0})
+          </span>
+        </div>
 
         <div className="flex items-baseline gap-2">
           <p className="text-red-600 font-bold text-lg">

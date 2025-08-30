@@ -2,7 +2,7 @@ import axios from "axios";
 import cookie from 'react-cookies'
 
 
-const BASE_URL = " http://192.168.1.9:8000/";
+const BASE_URL = "http://192.168.1.9:8000/";
 
 export const endpoint = {
     "send_otp": "/verified/send-otp/",
@@ -22,6 +22,7 @@ export const endpoint = {
 
     "product": "/products/",
     "product_detail": (id) => `/products/${id}/`,
+    "reviews_of_product": (id) => `/products/${id}/reviews/`,
 
     'cart': '/cart/',
     'add_to_cart': '/cart/add-to-cart/',
@@ -29,9 +30,21 @@ export const endpoint = {
 
     'my_orders': '/orders/my-orders/',
     'create_order': '/orders/',
+    'get_all_orders': '/orders/',
     'order': (id) => `/orders/${id}/`,
     'order_detail': (id) => `/orders/${id}/detail/`,
-    'cancel_order': (id) => `/orders/${id}/cancel/`
+    'cancel_order': (id) => `/orders/${id}/cancel/`,
+
+    // Revenue
+    'total_revenue': "/report/total-revenue/",
+    'monthly_revenue': '/report/monthly-revenue/',
+    'top_products': '/report/top-products/',
+    'today_orders': '/report/today-orders/',
+    'today_revenue': '/report/today-revenue/',
+    'revenue_by_date': '/report/revenue-by-date/',
+    'revenue_by_month': '/report/revenue-by-month/',
+    'revenue_by_year': '/report/revenue-by-year/',
+    'revenue_by_quarter': '/report/revenue-by-quarter/',
 
 }
 

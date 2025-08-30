@@ -5,6 +5,8 @@ const MyUserReducer = (current, action) => {
     switch (action.type) {
         case 'login':
             return action.payload;
+        case 'update':
+            return { ...current, ...action.payload };
         case 'logout':
             cookie.remove('token');
             return null;

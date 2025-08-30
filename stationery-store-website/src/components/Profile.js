@@ -4,8 +4,16 @@ import { FaEdit, FaSave } from "react-icons/fa";
 import { authApis, endpoint } from "../configs/Apis";
 import Swal from "sweetalert2";
 
+
 const Profile = () => {
-    const [user] = useContext(MyUserContext);
+    const [user, dispatch] = useContext(MyUserContext);
+    const roleLabels = {
+        customer: { label: "Khách hàng", color: "text-blue-600 font-semibold" },
+        staff: { label: "Nhân viên", color: "text-green-600 font-semibold" },
+        admin: { label: "Quản trị viên", color: "text-red-600 font-bold" },
+        manager: { label: "Quản lý cửa hàng", color: "text-purple-600 font-semibold" },
+    };
+    const role = roleLabels[user.role] || { label: "Không xác định", color: "text-gray-500" };
     const [info, setInfo] = useState({
         full_name: "",
         email: "",
@@ -65,11 +73,14 @@ const Profile = () => {
                 ...response.data
             });
 
+            dispatch({ type: "update", payload: response.data });
+
             Swal.fire({
                 icon: "success",
                 title: "Cập nhật thành công",
                 text: "Thông tin của bạn đã được cập nhật.",
             });
+
         } catch (error) {
             console.error("Error updating profile:", error);
             Swal.fire({
@@ -113,6 +124,7 @@ const Profile = () => {
                         {info.full_name || "Người dùng"}
                     </h2>
                     <p className="text-gray-500">{info.email}</p>
+                    <p className={role.color}>{role.label}</p>
                 </div>
 
                 {/* Form */}
