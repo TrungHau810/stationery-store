@@ -1,5 +1,8 @@
 import random
 from datetime import timedelta
+
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from rest_framework import viewsets, generics, permissions, status
@@ -92,7 +95,7 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
             data = review.save()
             return Response(serializers.ReviewSerializer(data).data, status=status.HTTP_201_CREATED)
 
-        reviews = self.get_object().review_set.select_related('user').all()
+        reviews = self.get_object().reviews.select_related('user').all()
         paginator = paginators.ReviewPagination()
         page = paginator.paginate_queryset(reviews, request)
         if page:
@@ -424,3 +427,127 @@ class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
         OTP.objects.create(user=user, code=otp)
 
         return Response({"detail": f"Gửi thành công mã OTP về email {email_address}"}, status=status.HTTP_200_OK)
+
+
+class ReportViewSet(viewsets.ViewSet):
+    permission_classes = [perms.IsStaff | perms.IsManager]
+
+    @action(methods=['get'], detail=False, url_path='total-revenue')
+    def get_total_revenue(self, request):
+        # Lấy tổng doanh thu từ các đơn hàng đã thanh toán
+        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        return Response({"total_revenue": total_revenue}, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='monthly-revenue')
+    def get_monthly_revenue(self, request):
+        # Lấy doanh thu theo tháng trong năm hiện tại
+        current_year = timezone.now().year
+        revenue_data = (Order.objects.filter(status=Order.Status.PAID, created_date__year=current_year)
+                        .annotate(month=TruncMonth('created_date'))
+                        .values('month')
+                        .annotate(total_revenue=Sum('total_price'))
+                        .order_by('month'))
+
+        # Định dạng dữ liệu để trả về
+        formatted_data = [
+            {
+                "month": entry['month'].strftime("%B"),
+                "total_revenue": entry['total_revenue']
+            }
+            for entry in revenue_data
+        ]
+
+        return Response(formatted_data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='top-products')
+    def get_top_selling_products(self, request):
+        # Lấy top 5 sản phẩm bán chạy nhất
+        top_products = (Order.objects.filter(status=Order.Status.PAID)
+                        .values('orderdetail__product__id', 'orderdetail__product__name')
+                        .annotate(total_sold=Sum('orderdetail__quantity'))
+                        .order_by('-total_sold')[:5])
+
+        return Response(top_products, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='today-orders')
+    def get_today_orders(self, request):
+        today = timezone.now().date()
+        today_orders = Order.objects.filter(created_date__date=today)
+        serializer = serializers.OrderSerializer(today_orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='today-revenue')
+    def get_today_revenue(self, request):
+        today = timezone.now().date()
+        today_revenue = Order.objects.filter(created_date__date=today).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        return Response({"today_revenue": today_revenue}, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='revenue-by-date')
+    def get_revenue_by_date(self, request):
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response({"detail": "Bạn chưa chọn thời gian"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"detail": "Định dạng ngày không hợp lệ. Định dạng: YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+
+        revenue = Order.objects.filter(created_date__date=date).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        return Response({"date": date_str, "revenue": revenue}, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='revenue-by-month')
+    def get_revenue_by_month(self, request):
+        month_str = request.query_params.get('month')
+        if not month_str:
+            return Response({"detail": "Bạn chưa chọn thời gian"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            month = timezone.datetime.strptime(month_str, '%Y-%m').date()
+        except ValueError:
+            return Response({"detail": "Định dạng tháng không hợp lệ. Định dạng: YYYY-MM."}, status=status.HTTP_400_BAD_REQUEST)
+
+        revenue = Order.objects.filter(created_date__year=month.year, created_date__month=month.month).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        return Response({"month": month_str, "revenue": revenue}, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='revenue-by-year')
+    def get_revenue_by_year(self, request):
+        year_str = request.query_params.get('year')
+        if not year_str:
+            return Response({"detail": "Bạn chưa chọn thời gian"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            year = int(year_str)
+        except ValueError:
+            return Response({"detail": "Định dạng năm không hợp lệ. Định dạng: YYYY."}, status=status.HTTP_400_BAD_REQUEST)
+
+        revenue = Order.objects.filter(created_date__year=year).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        return Response({"year": year_str, "revenue": revenue}, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='revenue-by-quarter')
+    def get_revenue_by_quarter(self, request):
+        quarter_str = request.query_params.get('quarter')
+        year_str = request.query_params.get('year')
+        if not quarter_str or not year_str:
+            return Response({"detail": "Bạn chưa chọn thời gian"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            quarter = int(quarter_str)
+            year = int(year_str)
+            if quarter not in [1, 2, 3, 4]:
+                raise ValueError
+        except ValueError:
+            return Response({"detail": "Định dạng quý không hợp lệ. Quý phải là số từ 1 đến 4 và năm định dạng: YYYY."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quarter == 1:
+            start_month, end_month = 1, 3
+        elif quarter == 2:
+            start_month, end_month = 4, 6
+        elif quarter == 3:
+            start_month, end_month = 7, 9
+        else:
+            start_month, end_month = 10, 12
+
+        revenue = Order.objects.filter(
+            created_date__year=year,
+            created_date__month__gte=start_month,
+            created_date__month__lte=end_month
+        ).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+
+        return Response({"quarter": quarter_str, "year": year_str, "revenue": revenue}, status=status.HTTP_200_OK)

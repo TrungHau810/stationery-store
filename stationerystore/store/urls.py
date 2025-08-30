@@ -17,6 +17,7 @@ router.register('payments', views.PaymentViewSet, basename='payment')
 router.register('goods-receipts', views.GoodsReceiptViewSet, basename='goods-receipt')
 router.register('cart', views.CartViewSet, basename='cart')
 router.register('verified', views.OTPViewSet, basename='verified')
+router.register('report', views.ReportViewSet, basename='report')
 
 urlpatterns = [
     path('', include(router.urls)),

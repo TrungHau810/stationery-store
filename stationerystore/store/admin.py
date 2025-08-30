@@ -161,7 +161,7 @@ class StationeryAdminSite(admin.AdminSite):
         return [path('store-stats/', self.store_stats)] + super().get_urls()
 
     def store_stats(self, request):
-        total_revenue = Order.objects.all().aggregate(total=Sum('total_price'))['total'] or 0
+        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
         total_users = User.objects.count()
         total_products = Product.objects.count()
         total_orders = Order.objects.count()

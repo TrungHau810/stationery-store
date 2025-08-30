@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Avg
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.serializers import ModelSerializer
@@ -31,11 +32,13 @@ class ProductImageSerializer(ModelSerializer):
 
 class ProductSerializer(ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
+    avarge_rating = serializers.SerializerMethodField(read_only=True)
+    count_reviews = serializers.IntegerField(source='reviews.count', read_only=True)
 
     class Meta:
         model = Product
         fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category",
-                  "brand", "discount", "images"]
+                  "brand", "discount", "images", "avarge_rating", "count_reviews"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -45,6 +48,16 @@ class ProductSerializer(ModelSerializer):
 
     def create(self, validated_data):
         return Product.objects.create(**validated_data)
+
+    def get_avarge_rating(self, obj):
+        reviews = obj.reviews.all()
+        print("Reviews:", reviews)
+        if reviews.exists():
+            return reviews.aggregate(avg_rating=Avg('rating'))['avg_rating']
+        return 0.0
+
+    def get_count_reviews(self, obj):
+        return obj.reviews.count()
 
 
 class UserSerializer(ModelSerializer):
@@ -104,10 +117,21 @@ class ReviewImageSerializer(ModelSerializer):
 
 class ReviewSerializer(ModelSerializer):
     images = ReviewImageSerializer(many=True, read_only=True)
+    user = UserSerializer(read_only=True)
+    rating_breakdown = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
-        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images']
+        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images', 'rating_breakdown']
+
+    def get_rating_breakdown(self, obj):
+        reviews = Review.objects.filter(product=obj.product)
+        counter = {}
+        for review in reviews:
+            counter[review.rating] = counter.get(review.rating, 0) + 1
+        print("Counter:", counter)
+        # Đảm bảo đủ 1 → 5 sao
+        return {str(i): counter.get(i, 0) for i in range(1, 6)}
 
 
 class OrderDetailSerializer(ModelSerializer):
@@ -221,6 +245,7 @@ class OrderSerializer(ModelSerializer):
                 )
 
         return order
+
 
 class PaymentSerializer(ModelSerializer):
     method = serializers.CharField(required=False)  # Thêm trường method để chọn phương thức
