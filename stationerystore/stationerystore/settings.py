@@ -140,6 +140,7 @@ VNPAY_TMNCODE = os.getenv('VNPAY_TMNCODE')
 VNPAY_URL = os.getenv('VNPAY_PAYMENT_URL')
 VNPAY_RETURN_URL = os.getenv('VNPAY_RETURN_URL')
 
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 

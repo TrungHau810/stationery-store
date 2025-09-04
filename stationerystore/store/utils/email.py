@@ -10,6 +10,18 @@ def send_order_success_email(order):
     to_email = [order.user.email]
     subject = f"Đặt hàng thành công - Mã đơn hàng #{order.id}"
 
+    order_status = None
+    if order.status == "PENDING":
+        order_status = "Đang chờ xử lý"
+    elif order.status == "PAID":
+        order_status = "Đã thanh toán"
+    elif order.status == "SHIPPING":
+        order_status = "Đang giao hàng"
+    elif order.status == "DELIVERED":
+        order_status = "Đã giao hàng"
+    elif order.status == "CANCELED":
+        order_status = "Đã huỷ"
+
     html_content = (f"""
                     <p>Chào khách hàng {order.user.full_name},</p>
                     <p>Cảm ơn bạn đã đặt hàng tại cửa hàng văn phòng phẩm Open Stationery Store!</p>
@@ -17,7 +29,7 @@ def send_order_success_email(order):
                     <p>Thông tin đơn hàng:</p>
                     <ul>
                         <li><strong>Mã đơn hàng:</strong> {order.id}</li>
-                        <li><strong>Trạng thái:</strong> {order.status}</li>
+                        <li><strong>Trạng thái:</strong> {order_status}</li>
                     </ul>
                     <p>Chúng tôi sẽ xử lý đơn hàng của bạn trong thời gian sớm nhất và sẽ thông báo cho bạn khi đơn hàng được giao.</p>
                     <p>Nếu bạn có bất kỳ câu hỏi nào về đơn hàng của mình, vui lòng liên hệ với chúng tôi qua email này hoặc gọi đến số điện thoại hỗ trợ khách hàng của chúng tôi.</p>

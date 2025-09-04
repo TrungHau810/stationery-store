@@ -1,15 +1,18 @@
+import os
 import random
 from datetime import timedelta
 
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from google import genai
 
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from stationerystore import settings
 from store import serializers, paginators, perms
 from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, \
     ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, Cart, CartItem, OTP
@@ -46,6 +49,11 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
     serializer_class = serializers.ProductSerializer
     pagination_class = paginators.ProductPagination
 
+    def get_permissions(self):
+        if self.action == "get_views_of_product" and self.request.method == "POST":
+            return [permissions.IsAuthenticated()]
+        return [AllowAny()]
+
     def get_queryset(self):
         query = self.queryset
 
@@ -61,6 +69,7 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
             brand_id = self.request.query_params.get("brand_id")
             if brand_id:
                 query = query.filter(brand_id=brand_id)
+                self.pagination_class = None  # Tắt phân trang nếu lọc theo brand
 
             price_min = self.request.query_params.get("price_min")
             if price_min:
@@ -72,11 +81,6 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
 
         return query
 
-    def get_permissions(self):
-        if self.action.__eq__("get_views_of_product") and self.request.method.__eq__("POST"):
-            return [permissions.IsAuthenticated()]
-        return [AllowAny()]
-
     @action(methods=['get'], detail=True, url_path='discounts')
     def get_discounts_of_product(self, request, pk):
         product = self.get_object()
@@ -85,15 +89,25 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
 
     @action(methods=["get", "post"], detail=True, url_path="reviews")
     def get_views_of_product(self, request, pk):
-        if request.method.__eq__("POST"):
-            review = serializers.ReviewSerializer(data={
-                "content": request.data.get("content"),
-                "product": pk,
-                "user": request.user.id
+        if request.method == "POST":
+            serializer = serializers.ReviewSerializer(data={
+                "rating": request.data.get("rating"),
+                "comment": request.data.get("comment"),
+                "product": pk
             })
-            review.is_valid(raise_exception=True)
-            data = review.save()
-            return Response(serializers.ReviewSerializer(data).data, status=status.HTTP_201_CREATED)
+            serializer.is_valid(raise_exception=True)
+            review_instance = serializer.save(user=request.user)
+            for img in request.FILES.getlist("images"):
+                img_serializer = serializers.ReviewImageSerializer(
+                    data={"link": img, "review": review_instance.id}
+                )
+                img_serializer.is_valid(raise_exception=True)
+                img_serializer.save()
+
+            return Response(
+                serializers.ReviewSerializer(review_instance).data,
+                status=status.HTTP_201_CREATED
+            )
 
         reviews = self.get_object().reviews.select_related('user').all()
         paginator = paginators.ReviewPagination()
@@ -105,7 +119,7 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
         return Response(serializers.ReviewSerializer(reviews, many=True).data, status=status.HTTP_200_OK)
 
 
-class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
+class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
     queryset = User.objects.filter(is_active=True)
     serializer_class = serializers.UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -165,7 +179,6 @@ class LoyaltyPointViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(methods=['get'], detail=False, url_path='my-loyalty-point', permission_classes=[perms.IsOwnerLoyaltyPoint])
     def get_my_loyalty_point(self, request):
         loyalty_point = LoyaltyPoint.objects.filter(user__pk=self.request.user.pk).first()
-        print(loyalty_point)
         if not loyalty_point:
             return Response({"detail": "Loyalty point not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializers.LoyaltyPointSerializer(loyalty_point).data, status=status.HTTP_200_OK)
@@ -183,6 +196,9 @@ class LoyaltyPointHistoryViewSet(viewsets.ViewSet, generics.ListAPIView):
             user_id = self.request.user.pk
             if user_id:
                 query = query.filter(user__pk=user_id)
+            status_param = self.request.query_params.get("type")
+            if status_param:
+                query = query.filter(type=status_param)
         return query
 
 
@@ -207,7 +223,16 @@ class ReviewViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIV
 class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView, generics.CreateAPIView):
     queryset = Order.objects.all()
     serializer_class = serializers.OrderSerializer
+    pagination_class = paginators.OrderPagination
     permission_classes = [perms.IsOrderOwner | perms.IsStaff]
+
+    def get_queryset(self):
+        query = self.queryset
+        if self.action.__eq__("list"):
+            status_param = self.request.query_params.get("status")
+            if status_param:
+                query = query.filter(status=status_param)
+        return query
 
     @action(methods=["get"], detail=True, url_path="detail")
     def get_order_details(self, request, pk):
@@ -217,7 +242,11 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
     @action(methods=["get"], detail=False, url_path="my-orders", permission_classes=[perms.IsOrderOwner])
     def get_my_orders(self, request):
         user = request.user
-        orders = self.queryset.filter(user=user).select_related('user').all()
+        status_param = request.query_params.get("status")
+        if status_param:
+            orders = self.queryset.filter(user=user, status=status_param).select_related('user').all()
+        else:
+            orders = self.queryset.filter(user=user).select_related('user').all()
         paginator = paginators.OrderPagination()
         page = paginator.paginate_queryset(orders, request)
         if page:
@@ -247,6 +276,21 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
                 product.quantity += item.quantity
                 product.save()
 
+        # Huỷ lịch sử tích điểm và trừ điểm đã tích
+        earn = LoyaltyPointHistory.objects.filter(order=order, type=LoyaltyPointHistory.Type.EARN).first()
+        if earn:
+            loyalty_point = LoyaltyPoint.objects.filter(user=order.user).first()
+            if loyalty_point:
+                loyalty_point.total_point -= earn.point
+                loyalty_point.save()
+        LoyaltyPointHistory.objects.filter(order=order, type=LoyaltyPointHistory.Type.EARN).delete()
+        # Cộng điểm lại cho khách hàng (nếu có)
+        loyalty_point = LoyaltyPoint.objects.filter(user=order.user).first()
+        if loyalty_point:
+            points_to_add = int(order.total_price // 10000)
+            loyalty_point.total_point += points_to_add
+            loyalty_point.save()
+        LoyaltyPointHistory.objects.filter(order=order, type=LoyaltyPointHistory.Type.REDEEM).delete()
         return Response({"detail": f'Đơn hàng #{order.pk} huỷ thành công'}, status=status.HTTP_200_OK)
 
 
@@ -398,6 +442,15 @@ class CartViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView
 
         return Response(serializers.CartSerializer(cart).data, status=status.HTTP_200_OK)
 
+    @action(methods=["post"], detail=False, url_path='clear-cart')
+    def clear_cart(self, request):
+        user = request.user
+        try:
+            cart = Cart.objects.get(user=user)
+            cart.items.all().delete()  # Xoá tất cả các mục trong giỏ hàng
+            return Response({"detail": "Giỏ hàng đã được làm trống"}, status=status.HTTP_200_OK)
+        except Cart.DoesNotExist:
+            return Response({"detail": "Giỏ hàng không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
 
 class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
     serializer_class = serializers.OTPSerializer
@@ -435,7 +488,8 @@ class ReportViewSet(viewsets.ViewSet):
     @action(methods=['get'], detail=False, url_path='total-revenue')
     def get_total_revenue(self, request):
         # Lấy tổng doanh thu từ các đơn hàng đã thanh toán
-        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))[
+                            'total'] or 0
         return Response({"total_revenue": total_revenue}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='monthly-revenue')
@@ -479,7 +533,8 @@ class ReportViewSet(viewsets.ViewSet):
     @action(methods=['get'], detail=False, url_path='today-revenue')
     def get_today_revenue(self, request):
         today = timezone.now().date()
-        today_revenue = Order.objects.filter(created_date__date=today).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        today_revenue = Order.objects.filter(created_date__date=today).exclude(status=Order.Status.CANCELED).aggregate(
+            total=Sum('total_price'))['total'] or 0
         return Response({"today_revenue": today_revenue}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='revenue-by-date')
@@ -490,9 +545,11 @@ class ReportViewSet(viewsets.ViewSet):
         try:
             date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            return Response({"detail": "Định dạng ngày không hợp lệ. Định dạng: YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Định dạng ngày không hợp lệ. Định dạng: YYYY-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        revenue = Order.objects.filter(created_date__date=date).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        revenue = Order.objects.filter(created_date__date=date).exclude(status=Order.Status.CANCELED).aggregate(
+            total=Sum('total_price'))['total'] or 0
         return Response({"date": date_str, "revenue": revenue}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='revenue-by-month')
@@ -503,9 +560,11 @@ class ReportViewSet(viewsets.ViewSet):
         try:
             month = timezone.datetime.strptime(month_str, '%Y-%m').date()
         except ValueError:
-            return Response({"detail": "Định dạng tháng không hợp lệ. Định dạng: YYYY-MM."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Định dạng tháng không hợp lệ. Định dạng: YYYY-MM."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        revenue = Order.objects.filter(created_date__year=month.year, created_date__month=month.month).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        revenue = Order.objects.filter(created_date__year=month.year, created_date__month=month.month).exclude(
+            status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
         return Response({"month": month_str, "revenue": revenue}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='revenue-by-year')
@@ -516,9 +575,11 @@ class ReportViewSet(viewsets.ViewSet):
         try:
             year = int(year_str)
         except ValueError:
-            return Response({"detail": "Định dạng năm không hợp lệ. Định dạng: YYYY."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Định dạng năm không hợp lệ. Định dạng: YYYY."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        revenue = Order.objects.filter(created_date__year=year).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        revenue = Order.objects.filter(created_date__year=year).exclude(status=Order.Status.CANCELED).aggregate(
+            total=Sum('total_price'))['total'] or 0
         return Response({"year": year_str, "revenue": revenue}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='revenue-by-quarter')
@@ -533,7 +594,8 @@ class ReportViewSet(viewsets.ViewSet):
             if quarter not in [1, 2, 3, 4]:
                 raise ValueError
         except ValueError:
-            return Response({"detail": "Định dạng quý không hợp lệ. Quý phải là số từ 1 đến 4 và năm định dạng: YYYY."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Định dạng quý không hợp lệ. Quý phải là số từ 1 đến 4 và năm định dạng: YYYY."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if quarter == 1:
             start_month, end_month = 1, 3
@@ -551,3 +613,23 @@ class ReportViewSet(viewsets.ViewSet):
         ).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
 
         return Response({"quarter": quarter_str, "year": year_str, "revenue": revenue}, status=status.HTTP_200_OK)
+
+
+class GeminiViewSet(viewsets.ViewSet):
+    @action(methods=['post'], detail=False, url_path='ask')
+    def ask_question(self, request):
+        question = request.data.get('question')
+        if not question:
+            return Response({"detail": "Bạn chưa nhập câu hỏi"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY))
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=question
+            )
+            answer = response.text.strip()
+            return Response({"answer": answer}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": f"Lỗi khi gọi Gemini API: {str(e)}"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)

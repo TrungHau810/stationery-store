@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Avg
+from django.db.models import Avg, Count
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.serializers import ModelSerializer
@@ -7,6 +7,7 @@ from rest_framework.serializers import ModelSerializer
 from store.models import Category, Supplier, Product, Review, User, Order, OrderDetail, Payment, Discount, GoodsReceipt, \
     GoodsReceiptDetail, ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, CartItem, Cart, OTP
 from store.utils import vnpay
+from store.utils.email import send_order_success_email
 
 
 class CategorySerializer(ModelSerializer):
@@ -32,13 +33,13 @@ class ProductImageSerializer(ModelSerializer):
 
 class ProductSerializer(ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
-    avarge_rating = serializers.SerializerMethodField(read_only=True)
+    average_rating = serializers.SerializerMethodField(read_only=True)
     count_reviews = serializers.IntegerField(source='reviews.count', read_only=True)
 
     class Meta:
         model = Product
         fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category",
-                  "brand", "discount", "images", "avarge_rating", "count_reviews"]
+                  "brand", "discount", "images", "average_rating", "count_reviews"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -49,9 +50,8 @@ class ProductSerializer(ModelSerializer):
     def create(self, validated_data):
         return Product.objects.create(**validated_data)
 
-    def get_avarge_rating(self, obj):
+    def get_average_rating(self, obj):
         reviews = obj.reviews.all()
-        print("Reviews:", reviews)
         if reviews.exists():
             return reviews.aggregate(avg_rating=Avg('rating'))['avg_rating']
         return 0.0
@@ -103,16 +103,19 @@ class SupplierSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class ReviewImageSerializer(ModelSerializer):
+class ReviewImageSerializer(serializers.ModelSerializer):
+    link = serializers.ImageField(write_only=True)   # dùng khi create
+    url = serializers.SerializerMethodField()        # dùng khi read
+
     class Meta:
         model = ReviewImage
-        fields = '__all__'
+        fields = ['id', 'link', 'url', 'review']
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        if instance.link:
-            data['link'] = instance.link.url
-        return data
+    def get_url(self, obj):
+        return obj.link.url if obj.link else None
+
+    def create(self, validated_data):
+        return ReviewImage.objects.create(**validated_data)
 
 
 class ReviewSerializer(ModelSerializer):
@@ -125,12 +128,14 @@ class ReviewSerializer(ModelSerializer):
         fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images', 'rating_breakdown']
 
     def get_rating_breakdown(self, obj):
-        reviews = Review.objects.filter(product=obj.product)
-        counter = {}
-        for review in reviews:
-            counter[review.rating] = counter.get(review.rating, 0) + 1
-        print("Counter:", counter)
-        # Đảm bảo đủ 1 → 5 sao
+        breakdown = (
+            Review.objects
+            .filter(product=obj.product)
+            .values('rating')
+            .annotate(count=Count('id'))
+        )
+
+        counter = {item['rating']: item['count'] for item in breakdown}
         return {str(i): counter.get(i, 0) for i in range(1, 6)}
 
 
@@ -146,7 +151,6 @@ class OrderDetailSerializer(ModelSerializer):
     def validate(self, attrs):
         try:
             product = Product.objects.get(pk=attrs["product_id"])
-            print("Sản phẩm trong giỏ: ", product)
         except Product.DoesNotExist:
             raise serializers.ValidationError("Sản phẩm không tồn tại")
 
@@ -243,7 +247,7 @@ class OrderSerializer(ModelSerializer):
                     type=LoyaltyPointHistory.Type.REDEEM,
                     order=order
                 )
-
+        send_order_success_email(order=order)
         return order
 
 
@@ -266,9 +270,48 @@ class GoodsReceiptSerializer(ModelSerializer):
         model = GoodsReceipt
         fields = '__all__'
 
+    def validate(self, attrs):
+        supplier = attrs.get('supplier')
+        if not supplier:
+            raise serializers.ValidationError("Nhà cung cấp không được để trống.")
+
+        supplier = Supplier.objects.filter(id=supplier.id).first()
+        if not supplier:
+            raise serializers.ValidationError("Nhà cung cấp không tồn tại.")
+        products = self.initial_data.get("goods_receipt_details", [])
+        if not products:
+            raise serializers.ValidationError("Phiếu nhập hàng phải có ít nhất 1 sản phẩm.")
+        return attrs
+
     def create(self, validated_data):
         user = self.context['request'].user
+        # Kiểm tra sản phẩm đúng với nhà cung cấp
+        supplier_id = validated_data.get('supplier')
+        supplier = Supplier.objects.get(id=supplier_id.id)
+        for item in self.initial_data.get("goods_receipt_details", []):
+            try:
+                product = Product.objects.get(pk=item["product_id"])
+                if product.brand != supplier:
+                    raise serializers.ValidationError(
+                        f"Sản phẩm id={item['product_id']} không thuộc nhà cung cấp {supplier.name}")
+            except Product.DoesNotExist:
+                raise serializers.ValidationError(f"Sản phẩm id={item['product_id']} không tồn tại")
+
+        products = self.initial_data.get("goods_receipt_details", [])
         goods_receipt = GoodsReceipt.objects.create(user=user, **validated_data)
+        # Cập nhật số lượng sản phẩm và tạo chi tiết phiếu nhập hàng
+        for item in products:
+            try:
+                product = Product.objects.get(pk=item["product_id"])
+                product.quantity += item["quantity"]
+                product.save()
+                GoodsReceiptDetail.objects.create(
+                    goods_receipt=goods_receipt,
+                    product=product,
+                    quantity=item["quantity"]
+                )
+            except Product.DoesNotExist:
+                raise serializers.ValidationError(f"Sản phẩm id={item['product_id']} không tồn tại")
         return goods_receipt
 
 

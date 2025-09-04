@@ -195,6 +195,8 @@ class Review(BaseModel):
     def __str__(self):
         return f"{self.user.full_name if self.user else 'Anonymous'} (username: {self.user.username if self.user else "Anonymous"}) - {self.product.name} - {self.rating} sao"
 
+    class Meta:
+        ordering = ['-created_date']
 
 class ReviewImage(BaseModel):
     link = CloudinaryField(null=True)

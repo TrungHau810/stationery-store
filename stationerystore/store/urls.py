@@ -18,7 +18,7 @@ router.register('goods-receipts', views.GoodsReceiptViewSet, basename='goods-rec
 router.register('cart', views.CartViewSet, basename='cart')
 router.register('verified', views.OTPViewSet, basename='verified')
 router.register('report', views.ReportViewSet, basename='report')
-
+router.register('gemini-ai', views.GeminiViewSet, basename='gemini-ai')
 urlpatterns = [
     path('', include(router.urls)),
 ]
