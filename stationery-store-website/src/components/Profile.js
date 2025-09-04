@@ -5,14 +5,15 @@ import { authApis, endpoint } from "../configs/Apis";
 import Swal from "sweetalert2";
 
 
+export const roleLabels = {
+    customer: { label: "Khách hàng", color: "text-blue-600 font-semibold" },
+    staff: { label: "Nhân viên", color: "text-green-600 font-semibold" },
+    admin: { label: "Quản trị viên", color: "text-red-600 font-bold" },
+    manager: { label: "Quản lý cửa hàng", color: "text-purple-600 font-semibold" },
+};
+
 const Profile = () => {
     const [user, dispatch] = useContext(MyUserContext);
-    const roleLabels = {
-        customer: { label: "Khách hàng", color: "text-blue-600 font-semibold" },
-        staff: { label: "Nhân viên", color: "text-green-600 font-semibold" },
-        admin: { label: "Quản trị viên", color: "text-red-600 font-bold" },
-        manager: { label: "Quản lý cửa hàng", color: "text-purple-600 font-semibold" },
-    };
     const role = roleLabels[user.role] || { label: "Không xác định", color: "text-gray-500" };
     const [info, setInfo] = useState({
         full_name: "",

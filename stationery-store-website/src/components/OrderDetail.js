@@ -42,7 +42,7 @@ const OrderDetail = () => {
         }
 
         try {
-            await authApis().patch(endpoint['cancel_order'](id), { reason: cancelReason });
+            await authApis().patch(endpoint['cancel_order'](id), { reason_cancel: cancelReason });
             Swal.fire({ icon: "success", title: "Huỷ đơn hàng thành công" });
             fetchOrder(); // tải lại trạng thái đơn
         } catch (error) {

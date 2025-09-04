@@ -2,7 +2,7 @@ import axios from "axios";
 import cookie from 'react-cookies'
 
 
-const BASE_URL = "http://192.168.1.9:8000/";
+const BASE_URL = "http://192.168.1.7:8000/";
 
 export const endpoint = {
     "send_otp": "/verified/send-otp/",
@@ -10,6 +10,15 @@ export const endpoint = {
     "register": "/user/",
     "verify": "/user/verified/",
     "profile": "/user/profile/",
+    "all_user": "/user/",
+
+    // Nhà cung cấp
+    "suppliers": "/suppliers/",
+    "supplier": (id) => `/suppliers/${id}/`,
+
+    // Phiếu nhập hàng
+    'goods_receipt': '/goods-receipts/',
+    'goods_receipt_detail': (id) => `/goods-receipt/${id}/`,
 
     "discounts_of_product": (id) => `/products/${id}/discounts/`,
     "discount": "/discounts/",
@@ -24,9 +33,14 @@ export const endpoint = {
     "product_detail": (id) => `/products/${id}/`,
     "reviews_of_product": (id) => `/products/${id}/reviews/`,
 
+    // Đánh giá
+    "reviews": "/reviews/",
+    "review_detail": (id) => `/reviews/${id}/`,
+
     'cart': '/cart/',
     'add_to_cart': '/cart/add-to-cart/',
     'remove_from_cart': '/cart/remove-from-cart/',
+    'clear_cart': '/cart/clear-cart/',
 
     'my_orders': '/orders/my-orders/',
     'create_order': '/orders/',

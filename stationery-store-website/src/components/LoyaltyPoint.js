@@ -14,6 +14,7 @@ import {
 
 const LoyaltyPoint = () => {
     const [loyaltyPointHistory, setLoyaltyPointHistory] = useState([]);
+    const [filterType, setFilterType] = useState("ALL"); // <-- thêm state filter
     const [user] = useContext(MyUserContext);
     const nav = useNavigate();
 
@@ -30,10 +31,16 @@ const LoyaltyPoint = () => {
         fetchLoyaltyPointHistory();
     }, []);
 
+    // Áp dụng filter theo type
+    const filteredHistory = useMemo(() => {
+        if (filterType === "ALL") return loyaltyPointHistory;
+        return loyaltyPointHistory.filter((item) => item.type === filterType);
+    }, [loyaltyPointHistory, filterType]);
+
     // Chuẩn bị dữ liệu cho biểu đồ
     const chartData = useMemo(() => {
         const dataMap = {};
-        loyaltyPointHistory.forEach((item) => {
+        filteredHistory.forEach((item) => {
             const dateObj = new Date(item.created_date);
             const month = (dateObj.getMonth() + 1).toString().padStart(2, "0");
             const year = dateObj.getFullYear();
@@ -44,7 +51,7 @@ const LoyaltyPoint = () => {
             dataMap[monthLabel][item.type] += item.point;
         });
         return Object.values(dataMap);
-    }, [loyaltyPointHistory]);
+    }, [filteredHistory]);
 
     const totalPoints = loyaltyPointHistory.reduce((sum, item) => {
         return item.type === "EARN" ? sum + item.point : sum - item.point;
@@ -81,6 +88,19 @@ const LoyaltyPoint = () => {
                 </p>
             </div>
 
+            {/* Bộ lọc */}
+            <div className="flex justify-end">
+                <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="border px-3 py-2 rounded shadow-sm text-gray-700"
+                >
+                    <option value="ALL">Tất cả</option>
+                    <option value="EARN">Tích điểm</option>
+                    <option value="REDEEM">Sử dụng điểm</option>
+                </select>
+            </div>
+
             {/* Biểu đồ */}
             <div className="bg-white p-6 rounded-lg shadow">
                 <h2 className="text-xl font-bold mb-4">Biểu đồ tích điểm</h2>
@@ -107,7 +127,7 @@ const LoyaltyPoint = () => {
             {/* Lịch sử */}
             <div className="bg-white p-6 rounded-lg shadow overflow-x-auto">
                 <h2 className="text-xl font-bold mb-4">Lịch sử tích điểm</h2>
-                {loyaltyPointHistory.length > 0 ? (
+                {filteredHistory.length > 0 ? (
                     <table className="min-w-full border border-gray-200 rounded-lg">
                         <thead className="bg-gray-100 text-gray-700">
                             <tr>
@@ -118,14 +138,15 @@ const LoyaltyPoint = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {loyaltyPointHistory.map((item) => (
+                            {filteredHistory.map((item) => (
                                 <tr
                                     key={item.id}
                                     onClick={() => nav(`/purchase/order/${item.order}`)}
-                                    className={`cursor-pointer transition hover:opacity-80 ${item.type === "REDEEM"
+                                    className={`cursor-pointer transition hover:opacity-80 ${
+                                        item.type === "REDEEM"
                                             ? "bg-red-50 text-red-700 font-semibold"
                                             : "bg-green-50 text-green-800"
-                                        }`}
+                                    }`}
                                 >
                                     <td className="py-2 px-4 border-b">#{item.order}</td>
                                     <td className="py-2 px-4 border-b text-center">
@@ -143,7 +164,7 @@ const LoyaltyPoint = () => {
                     </table>
                 ) : (
                     <p className="text-gray-400 text-center py-8">
-                        Chưa có lịch sử tích điểm
+                        Không có lịch sử với bộ lọc này
                     </p>
                 )}
             </div>

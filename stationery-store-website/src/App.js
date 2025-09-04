@@ -19,6 +19,9 @@ import Register from './components/Register';
 import Footer from './components/layout/Footer';
 import OrderList from './components/staff/OrderList';
 import RevenueStore from './components/staff/RevenueStore';
+import ReceivingProducts from './components/staff/ReceivingProducts';
+import ReceiptList from './components/staff/ReceiptList.js';
+import HomeStaff from './components/staff/HomeStaff.js';
 
 
 function App() {
@@ -51,9 +54,12 @@ function App() {
             {/* Staff routes */}
             {user?.role === "staff" && (
               <>
+                <Route path='/staff/home' element={<HomeStaff />} />
                 {/* <Route path='/staff-dashboard' element={<StaffDashboard />} /> */}
                 <Route path='/staff/orders' element={<OrderList />} />
                 <Route path='/staff/revenue' element={<RevenueStore />} />
+                <Route path='/staff/receipts' element={<ReceiptList />} />
+                <Route path='/staff/receipts/new' element={<ReceivingProducts />} />
                 {/* Thêm các route staff ở đây */}
               </>
             )}

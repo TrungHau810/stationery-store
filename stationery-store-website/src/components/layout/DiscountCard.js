@@ -12,10 +12,10 @@ const DiscountCard = ({ discount }) => {
     };
 
     return (
-        <div className="flex items-stretch mb-3 overflow-hidden rounded-lg shadow border bg-white">
+        <div className="flex items-stretch mb-3 overflow-hidden rounded-xl shadow border-2 border-dashed border-red-400 bg-white relative">
             {/* Cột trái - % giảm */}
             <div className="bg-red-500 text-white flex flex-col items-center justify-center w-28 relative">
-                <span className="text-2xl font-extrabold leading-none">
+                <span className="text-3xl font-extrabold leading-none">
                     {discount.discount}%
                 </span>
                 <span className="text-xs uppercase mt-1 tracking-wide">Giảm</span>
@@ -65,6 +65,10 @@ const DiscountCard = ({ discount }) => {
                     )}
                 </button>
             </div>
+
+            {/* Lỗ tròn 2 bên kiểu voucher */}
+            <div className="absolute top-1/2 -left-3 w-6 h-6 bg-gray-50 border border-red-400 rounded-full -translate-y-1/2"></div>
+            <div className="absolute top-1/2 -right-3 w-6 h-6 bg-gray-50 border border-red-400 rounded-full -translate-y-1/2"></div>
         </div>
     );
 };

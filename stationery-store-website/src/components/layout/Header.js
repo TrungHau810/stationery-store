@@ -33,11 +33,12 @@ const Header = () => {
     const role = user?.role;
 
     return (
-        <header className="sticky top-0 z-50 shadow-md w-full bg-white">
+        <header className="sticky top-0 z-50 bg-white transition-shadow duration-300 shadow-sm">
             {/* Top bar */}
             <div className="bg-blue-100 flex items-center justify-between px-4 sm:px-6 md:px-12 py-3 shadow-sm">
                 {/* Logo */}
-                <button className="text-xl font-extrabold text-blue-600" onClick={() => nav("/")}>
+                <button className="flex items-center text-xl font-extrabold text-blue-600 hover:opacity-80 transition" onClick={() => nav("/")}>
+                    <img src="/store-logo.png" alt="TH Stationery" className="h-8 w-8 mr-2" />
                     TH Stationery
                 </button>
 
@@ -45,21 +46,9 @@ const Header = () => {
                 <div className="hidden md:flex flex-1 mx-4">
                     <div className="relative w-full">
                         <input
-                            type="text"
-                            placeholder="Tìm sản phẩm..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    nav(`/?keyword=${searchTerm}`);
-                                }
-                            }}
-                            className="w-full px-4 py-2 pr-10 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
+                            className="w-full px-4 py-2 pr-10 rounded-full border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
                         />
-                        <button
-                            onClick={() => nav(`/?keyword=${searchTerm}`)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-500"
-                        >
+                        <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-500 transition">
                             <MagnifyingGlassIcon className="h-5 w-5" />
                         </button>
                     </div>
@@ -86,7 +75,7 @@ const Header = () => {
                             <ShoppingCartIcon className="h-5 w-5" />
                             <span className="hidden sm:inline">Giỏ hàng</span>
                             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                                0
+                                {cart?.length || 0}
                             </span>
                         </button>
                     ) : null}
@@ -97,34 +86,45 @@ const Header = () => {
             <nav className="bg-blue-50 px-4 sm:px-6 md:px-12 py-2 flex items-center space-x-2 sm:space-x-4 overflow-x-auto shadow-sm">
                 {/* Danh mục sản phẩm */}
                 <div className="relative">
-                    <button
-                        className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-100 hover:bg-blue-200 transition"
-                        onClick={() => setShowCategories(!showCategories)}
-                    >
-                        <Bars3Icon className="h-5 w-5 text-blue-600" />
-                        <span className="font-medium text-blue-700 text-sm sm:text-base">Danh mục sản phẩm</span>
-                    </button>
+                    {!user || user.role === "customer" ? <>
+                        <button
+                            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-100 hover:bg-blue-200 transition"
+                            onClick={() => setShowCategories(!showCategories)}
+                        >
+                            <Bars3Icon className="h-5 w-5 text-blue-600" />
+                            <span className="font-medium text-blue-700 text-sm sm:text-base">Danh mục sản phẩm</span>
+                        </button>
 
-                    {showCategories && (
-                        <ul className="absolute top-full mt-2 left-0 w-56 sm:w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                            {categories.map((c) => (
-                                <li
-                                    key={c.id}
-                                    className="flex justify-between items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
-                                >
-                                    <div className="flex items-center space-x-2">
-                                        <span>{c.icon}</span>
-                                        <span className="text-gray-700">{c.name}</span>
-                                    </div>
-                                    <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                        {showCategories && (
+                            <ul className="absolute top-full mt-2 left-0 w-56 max-h-96 overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                {categories.map((c) => (
+                                    <li
+                                        key={c.id}
+                                        className="flex justify-between items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <span>{c.icon}</span>
+                                            <span className="text-gray-700">{c.name}</span>
+                                        </div>
+                                        <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </> : null}
                 </div>
 
                 {/* Các menu khác */}
-                <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base">Sản phẩm</button>
+                {!user || user.role === "customer" ? (
+                    <>
+                        <button className="px-3 py-2 rounded-lg text-sm sm:text-base hover:bg-blue-100  transition transform hover:scale-105 duration-200">
+                            Sản phẩm
+                        </button>
+                        <button className="px-3 py-2 rounded-lg text-sm sm:text-base hover:bg-blue-100 transition transform hover:scale-105 duration-200">
+                            Khuyến mãi
+                        </button>
+                    </>
+                ) : null}
                 {/* Chỉ customer mới thấy lịch sử mua hàng và tích điểm */}
                 {(role === "customer" || !role) && (
                     <>
@@ -137,6 +137,9 @@ const Header = () => {
                     <>
                         <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff-dashboard")}>
                             Trang nhân viên
+                        </button>
+                        <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff/receipts")}>
+                            Kho hàng
                         </button>
                         <button className="px-3 py-2 rounded-lg hover:bg-blue-100 transition text-sm sm:text-base" onClick={() => nav("/staff/orders")}>
                             Danh sách đơn hàng

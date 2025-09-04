@@ -34,8 +34,8 @@ const ProductCard = ({ item }) => {
 
         <div className="flex items-center gap-1 mb-2">
           {Array.from({ length: 5 }, (_, i) => {
-            const full = i + 1 <= Math.floor(item.avarge_rating); // sao đầy
-            const half = !full && i < item.avarge_rating;          // sao nửa
+            const full = i + 1 <= Math.floor(item.average_rating); // sao đầy
+            const half = !full && i < item.average_rating;          // sao nửa
             return (
               <svg
                 key={i}
@@ -62,7 +62,7 @@ const ProductCard = ({ item }) => {
             );
           })}
           <span className="text-sm text-gray-600">
-            {item.avarge_rating ? item.avarge_rating.toFixed(1) : "0.0"} ({item.count_reviews || 0})
+            {item.average_rating ? item.average_rating.toFixed(1) : "0.0"} ({item.count_reviews || 0})
           </span>
         </div>
 

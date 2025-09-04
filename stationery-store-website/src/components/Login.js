@@ -40,9 +40,26 @@ const Login = () => {
                 timer: 2000,
                 showConfirmButton: false
             });
-            setTimeout(() => nav("/"), 2000);
-        } catch {
-            setMessage("Tên đăng nhập hoặc mật khẩu không đúng.");
+            setTimeout(() => { user.role === "customer" ? nav("/staff/home") : nav("/") }, 2000);
+        } catch (err) {
+            if (err.response) {
+                if (err.response.status === 400) {
+                    if (err.response.data.error === "invalid_request")
+                        setMessage("Vui lòng nhập tên đăng nhập và mật khẩu.");
+                    else if (err.response.data.error === "invalid_grant")
+                        setMessage("Tài khoản chưa xác thực");
+                } else if (err.response.status === 401) {
+                    setMessage("Tài khoản của bạn đã bị vô hiệu hóa.");
+                } else {
+                    setMessage("Đã có lỗi xảy ra, vui lòng thử lại sau.");
+                }
+            } else if (err.message === "Network Error") {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi máy chủ',
+                    text: 'Đã có lỗi xảy ra, vui lòng thử lại sau.',
+                });
+            }
         } finally {
             setLoading(false);
         }
