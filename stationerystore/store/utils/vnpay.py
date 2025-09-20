@@ -1,10 +1,15 @@
 import hashlib
 import hmac
+import logging
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import JsonResponse
+
+from store.models import Payment, Order
+
+logger = logging.getLogger(__name__)
 
 
 def create_vnpay_url(request, order):
@@ -19,7 +24,7 @@ def create_vnpay_url(request, order):
         'vnp_TmnCode': settings.VNPAY_TMNCODE,
         'vnp_Amount': int(order.total_price * 100),  # Nhân 100 để loại bỏ thập phân
         'vnp_CurrCode': 'VND',
-        'vnp_TxnRef': str(order.id),
+        'vnp_TxnRef': str(order.id) + f"-{int(datetime.now().timestamp())}",  # Mã đơn hàng kèm timestamp để tránh trùng
         'vnp_OrderInfo': f"Thanh toan ma don hang #{order.id}",
         'vnp_OrderType': 'other',  # Loại hàng hóa, có thể tùy chỉnh
         'vnp_Locale': 'vn',
@@ -28,9 +33,6 @@ def create_vnpay_url(request, order):
         'vnp_CreateDate': order.created_date.strftime('%Y%m%d%H%M%S'),
         'vnp_ExpireDate': (datetime.now() + timedelta(minutes=15)).strftime('%Y%m%d%H%M%S'),
     }
-
-    print("DEBUG RETURN URL từ settings:", settings.VNPAY_RETURN_URL)
-    print("DEBUG RETURN URL gửi sang VNPay:", vnp_params["vnp_ReturnUrl"])
 
     sorted_params = sorted(vnp_params.items())
     vnp_query = urlencode(sorted_params)
@@ -45,42 +47,60 @@ def create_vnpay_url(request, order):
 
 
 def payment_ipn(request):
+    """
+    Callback VNPay (Return/IPN), trả JSON cho SPA
+    """
     input_data = request.GET.dict()
     vnp_secure_hash = input_data.pop('vnp_SecureHash', None)
 
     if not input_data:
-        return JsonResponse({'RspCode': '99', 'Message': 'Invalid request'})
-
-    # Sắp xếp params để tính hash
-    sorted_params = sorted(input_data.items())
-    query_string = urlencode(sorted_params)
+        return JsonResponse({'RspCode': '99', 'Message': 'Invalid request'}, status=400)
 
     # Tính hash server
-    secret_key = settings.VNPAY_HASH_SECRET_KEY.encode('utf-8')
-    secure_hash = hmac.new(secret_key, query_string.encode('utf-8'), hashlib.sha512).hexdigest()
+    hash_data = '&'.join([f"{k}={v}" for k, v in sorted(input_data.items())])
+    secure_hash = hmac.new(
+        settings.VNPAY_HASH_SECRET_KEY.encode('utf-8'),
+        hash_data.encode('utf-8'),
+        hashlib.sha512
+    ).hexdigest()
 
+    # Kiểm tra chữ ký
     if secure_hash != vnp_secure_hash:
-        return JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'})
+        logger.warning(f"VNPay signature invalid: {input_data}")
+        return JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'}, status=400)
 
-    # Lấy thông tin giao dịch
+    # Lấy order
     order_id = input_data.get('vnp_TxnRef')
-    amount = input_data.get('vnp_Amount')
+    amount = int(input_data.get('vnp_Amount', 0))
     vnp_ResponseCode = input_data.get('vnp_ResponseCode')
 
-    # TODO: kiểm tra order trong DB và update trạng thái
-    first_time_update = True  # ví dụ: check chưa update trước đó
-    valid_amount = True  # ví dụ: so sánh số tiền trong DB
+    try:
+        order = Order.objects.get(id=order_id)
+    except Order.DoesNotExist:
+        return JsonResponse({'RspCode': '01', 'Message': 'Order not found'}, status=404)
 
-    if not valid_amount:
-        return JsonResponse({'RspCode': '04', 'Message': 'Invalid amount'})
+    expected_amount = int(order.total_price * 100)
+    if amount != expected_amount:
+        return JsonResponse({'RspCode': '04', 'Message': 'Invalid amount'}, status=400)
 
-    if not first_time_update:
-        return JsonResponse({'RspCode': '02', 'Message': 'Order Already Updated'})
+    # Lấy payment mới nhất
+    payment = Payment.objects.filter(order=order, method=Payment.Method.VNPAY).last()
+    if not payment:
+        return JsonResponse({'RspCode': '01', 'Message': 'Payment not found'}, status=404)
 
+    if payment.status == Payment.Status.SUCCESS:
+        return JsonResponse({'RspCode': '02', 'Message': 'Order already confirmed'}, status=200)
+
+    # Cập nhật trạng thái
     if vnp_ResponseCode == '00':
-        # Thành công
-        return JsonResponse({'RspCode': '00', 'Message': 'Thanh toán thành công'})
-        # update Order.status = PAID
+        payment.status = Payment.Status.SUCCESS
+        order.status = Order.Status.PAID
+        payment.save()
+        order.save()
+        return JsonResponse({'RspCode': '00', 'Message': 'Success'}, status=200)
     else:
-        # Thất bại
-        return JsonResponse({'RspCode': '01', 'Message': 'Thanh toán thất bại'})
+        payment.status = Payment.Status.FAIL
+        order.status = Order.Status.PENDING
+        payment.save()
+        order.save()
+        return JsonResponse({'RspCode': '01', 'Message': 'Payment failed'}, status=400)

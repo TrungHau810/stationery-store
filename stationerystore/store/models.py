@@ -40,6 +40,10 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    class Meta:
+        verbose_name = "Người dùng"
+        verbose_name_plural = "Người dùng"
+
 
 class LoyaltyPoint(BaseModel):
     total_point = models.IntegerField(default=0)
@@ -48,17 +52,21 @@ class LoyaltyPoint(BaseModel):
     def __str__(self):
         return f"{self.user.username} - {self.total_point} điểm"
 
+    class Meta:
+        verbose_name = "Điểm thưởng"
+        verbose_name_plural = "Điểm thưởng"
+
 
 class Category(BaseModel, Active):
     name = models.CharField(max_length=150, null=False, unique=True)
     description = models.TextField(null=True, blank=True)
-    category_parent = models.ForeignKey('Category', on_delete=models.CASCADE,
-                                        related_name="category_children",
-                                        null=True,
-                                        blank=True)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = "Danh mục"
+        verbose_name_plural = "Danh mục"
 
 
 class Product(BaseModel, Active):
@@ -68,7 +76,6 @@ class Product(BaseModel, Active):
     image = CloudinaryField()
     quantity = models.IntegerField(null=False, blank=False)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    discount = models.ManyToManyField('Discount', null=True, blank=True)
     brand = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
@@ -76,6 +83,8 @@ class Product(BaseModel, Active):
 
     class Meta:
         ordering = ['id']
+        verbose_name = "Sản phẩm"
+        verbose_name_plural = "Sản phẩm"
 
 
 class ProductImage(BaseModel):
@@ -84,6 +93,10 @@ class ProductImage(BaseModel):
 
     def __str__(self):
         return f"Ảnh sản phẩm #{self.id} - {self.product.name} "
+
+    class Meta:
+        verbose_name = "Hình ảnh sản phẩm"
+        verbose_name_plural = "Hình ảnh sản phẩm"
 
 
 class Supplier(models.Model):
@@ -95,6 +108,10 @@ class Supplier(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = "Nhà cung cấp"
+        verbose_name_plural = "Nhà cung cấp"
+
 
 class Order(BaseModel):
     class Status(models.TextChoices):
@@ -104,11 +121,20 @@ class Order(BaseModel):
         DELIVERED = "DELIVERED", "Đã giao hàng"
         CANCELED = "CANCELED", "Đã huỷ"
 
+    class PaymentMethod(models.TextChoices):
+        MOMO = "momo", "MoMo"
+        CASH = "cash", "Tiền mặt"
+        VNPAY = "vnpay", "VNPay"
+
     note = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=50, choices=Status, default=Status.PENDING)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    name_customer = models.CharField(max_length=100, null=False)
+    number_phone = models.CharField(max_length=11, null=False)
+    address = models.CharField(max_length=255, null=False)
     discount = models.ForeignKey('Discount', on_delete=models.SET_NULL, null=True, blank=True)
+    payment_method = models.CharField(max_length=50, choices=PaymentMethod, default=PaymentMethod.CASH)
     reson_cancel = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -116,6 +142,8 @@ class Order(BaseModel):
 
     class Meta:
         ordering = ['-created_date']
+        verbose_name = "Đơn hàng"
+        verbose_name_plural = "Đơn hàng"
 
 
 class OrderDetail(models.Model):
@@ -125,6 +153,10 @@ class OrderDetail(models.Model):
 
     def __str__(self):
         return f"#{self.id} - Mã đơn hàng #{self.order.id} - Tên SP: {self.product.name} - SL: {self.quantity}"
+
+    class Meta:
+        verbose_name = "Chi tiết đơn hàng"
+        verbose_name_plural = "Chi tiết đơn hàng"
 
 
 class LoyaltyPointHistory(BaseModel):
@@ -140,6 +172,11 @@ class LoyaltyPointHistory(BaseModel):
     def __str__(self):
         return f"{self.user.username}  {self.get_type_display()} {self.point} điểm"
 
+    class Meta:
+        ordering = ['-created_date']
+        verbose_name = "Lịch sử điểm thưởng"
+        verbose_name_plural = "Lịch sử điểm thưởng"
+
 
 class GoodsReceipt(BaseModel):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -147,6 +184,10 @@ class GoodsReceipt(BaseModel):
 
     def __str__(self):
         return f"Receipt {self.id} - Supplier {self.supplier.name if self.supplier else 'Unknown'} - User {self.user.username if self.user else 'Anonymous'}"
+
+    class Meta:
+        verbose_name = "Phiếu nhập hàng"
+        verbose_name_plural = "Phiếu nhập hàng"
 
 
 class GoodsReceiptDetail(models.Model):
@@ -157,15 +198,24 @@ class GoodsReceiptDetail(models.Model):
     def __str__(self):
         return f"{self.id} - Receipt {self.goods_receipt.id} - Product {self.product.name} - Quantity {self.quantity}"
 
+    class Meta:
+        verbose_name = "Chi tiết phiếu nhập hàng"
+        verbose_name_plural = "Chi tiết phiếu nhập hàng"
+
 
 class Discount(BaseModel):
     code = models.CharField(max_length=50, null=False)
     discount = models.IntegerField()
     start_date = models.DateTimeField(null=False)
     end_date = models.DateTimeField(null=False)
+    products = models.ManyToManyField(Product, blank=True)
 
     def __str__(self):
         return f"Mã: {self.code} - Giảm {self.discount}% - từ {self.start_date.strftime('%d/%m/%Y %H:%M')} đến {self.end_date.strftime('%d/%m/%Y %H:%M')}"
+
+    class Meta:
+        verbose_name = "Mã giảm giá"
+        verbose_name_plural = "Mã giảm giá"
 
 
 class Payment(BaseModel):
@@ -184,9 +234,13 @@ class Payment(BaseModel):
     method = models.CharField(max_length=50, choices=Method, default=Method.CASH)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
 
+    class Meta:
+        verbose_name = "Thanh toán"
+        verbose_name_plural = "Thanh toán"
+
 
 class Review(BaseModel):
-    rating = models.IntegerField()
+    rating = models.IntegerField(default=0)
     comment = models.TextField()
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
@@ -197,6 +251,9 @@ class Review(BaseModel):
 
     class Meta:
         ordering = ['-created_date']
+        verbose_name = "Đánh giá"
+        verbose_name_plural = "Đánh giá"
+
 
 class ReviewImage(BaseModel):
     link = CloudinaryField(null=True)
@@ -204,6 +261,10 @@ class ReviewImage(BaseModel):
 
     def __str__(self):
         return f"Hình ảnh đánh giá sản phẩm #{self.review.product.pk} {self.review.product.name}"
+
+    class Meta:
+        verbose_name = "Hình ảnh đánh giá"
+        verbose_name_plural = "Hình ảnh đánh giá"
 
 
 class Conversation(BaseModel):
@@ -216,21 +277,46 @@ class Conversation(BaseModel):
     def __str__(self):
         return f"Conversation between {self.staff.username if self.staff else 'Staff'} and {self.customer.username if self.customer else 'Customer'}"
 
+    class Meta:
+        verbose_name = "Cuộc trò chuyện"
+        verbose_name_plural = "Cuộc trò chuyện"
+
 
 class Message(BaseModel):
     content = models.TextField(null=False)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
+    def __str__(self):
+        return f"Message from {self.sender.username if self.sender else 'Unknown'} in Conversation {self.conversation.id}"
+
+    class Meta:
+        verbose_name = "Tin nhắn"
+        verbose_name_plural = "Tin nhắn"
+
 
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Giỏ hàng của {self.user.username}"
+
+    class Meta:
+        verbose_name = "Giỏ hàng"
+        verbose_name_plural = "Giỏ hàng"
 
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} in cart of {self.cart.user.username}"
+
+    class Meta:
+        verbose_name = "Mục giỏ hàng"
+        verbose_name_plural = "Mục giỏ hàng"
 
 
 class OTP(models.Model):
@@ -240,3 +326,7 @@ class OTP(models.Model):
 
     def __str__(self):
         return f"OTP for {self.user.username} - Code: {self.code}"
+
+    class Meta:
+        verbose_name = "Mã OTP"
+        verbose_name_plural = "Mã OTP"

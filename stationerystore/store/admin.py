@@ -26,7 +26,7 @@ class UserAdmin(admin.ModelAdmin):
 
 
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category_parent', 'description', 'active']
+    list_display = ['name', 'description', 'active']
     search_fields = ['name']
     empty_value_display = "-Không có-"
 
@@ -64,13 +64,6 @@ class SupplierAdmin(admin.ModelAdmin):
         return mark_safe(f"<img src={supplier.logo.url} width='150' />")
 
 
-class ProductInlineDiscountAdmin(admin.TabularInline):
-    model = Product.discount.through
-    extra = 1
-    verbose_name = "Sản phẩm áp dụng giảm giá"
-    verbose_name_plural = "Sản phẩm áp dụng giảm giá"
-
-
 class OrderDetailInlineOrderAdmin(admin.TabularInline):
     model = OrderDetail
     extra = 1
@@ -89,7 +82,7 @@ class DiscountAdmin(admin.ModelAdmin):
     list_display = ['code', 'discount', 'start_date', 'end_date']
     search_fields = ['code']
     list_filter = ['start_date', 'end_date']
-    inlines = [ProductInlineDiscountAdmin]
+    filter_horizontal = ['products']
 
 
 class LoyaltyPointHistoryInline(admin.TabularInline):
@@ -100,7 +93,7 @@ class LoyaltyPointHistoryInline(admin.TabularInline):
 
 
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'total_price', 'status', 'created_date', 'updated_date']
+    list_display = ['id', 'user', 'total_price', 'payment_method', 'status', 'created_date', 'updated_date']
     search_fields = ['user__username', 'user__email']
     list_filter = ['status', 'created_date']
     emty_value_display = "-Không có-"
@@ -140,28 +133,40 @@ class ReviewAdmin(admin.ModelAdmin):
 
 
 class LoyaltyPointAdmin(admin.ModelAdmin):
-    list_display = ['user', 'total_point', 'created_date', 'updated_date']
+    list_display = ['id', 'user', 'total_point', 'created_date', 'updated_date']
     search_fields = ['user__username', 'user__full_name', 'user__number_phone', 'user__email']
     empty_value_display = "-Không có-"
 
 
 class LoyaltyPointHistoryAdmin(admin.ModelAdmin):
-    list_display = ['user', 'point', 'type', 'created_date', 'order']
+    list_display = ['id', 'user', 'point', 'type', 'created_date', 'order']
     search_fields = ['user__username']
     list_filter = ['created_date']
     empty_value_display = "-Không có-"
 
 
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ['id', 'order', 'method', 'amount', 'status', 'created_date']
+    search_fields = ['order__id', 'method']
+    list_filter = ['method', 'status', 'created_date']
+    empty_value_display = "-Không có-"
+
+
 class StationeryAdminSite(admin.AdminSite):
-    site_header = 'TH Store Administration'
-    site_title = 'TH Store Admin'
-    index_title = 'Trang quản trị TH Store'
+    site_header = 'Hệ thống quản trị Open Stationery Store'
+    index_title = 'Hệ thống quản trị'
 
     def get_urls(self):
         return [path('store-stats/', self.store_stats)] + super().get_urls()
 
+    class Media:
+        css = {
+            'all': ('/static/css/style.css',)
+        }
+
     def store_stats(self, request):
-        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))[
+                            'total'] or 0
         total_users = User.objects.count()
         total_products = Product.objects.count()
         total_orders = Order.objects.count()
@@ -189,7 +194,7 @@ admin_site.register(Discount, DiscountAdmin)
 admin_site.register(Order, OrderAdmin)
 admin_site.register(OrderDetail)
 admin_site.register(Supplier, SupplierAdmin)
-admin_site.register(Payment)
+admin_site.register(Payment, PaymentAdmin)
 admin_site.register(GoodsReceipt, GoodsReceiptAdmin)
 admin_site.register(GoodsReceiptDetail)
 admin_site.register(Review, ReviewAdmin)
@@ -197,6 +202,5 @@ admin_site.register(Conversation)
 admin_site.register(Message)
 admin_site.register(LoyaltyPoint, LoyaltyPointAdmin)
 admin_site.register(LoyaltyPointHistory, LoyaltyPointHistoryAdmin)
-admin_site.register(OTP)
 
 admin_site.register(AccessToken)

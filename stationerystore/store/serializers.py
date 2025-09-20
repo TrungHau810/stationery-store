@@ -10,6 +10,12 @@ from store.utils import vnpay
 from store.utils.email import send_order_success_email
 
 
+class SupplierSerializer(ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = '__all__'
+
+
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
@@ -34,12 +40,13 @@ class ProductImageSerializer(ModelSerializer):
 class ProductSerializer(ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField(read_only=True)
-    count_reviews = serializers.IntegerField(source='reviews.count', read_only=True)
+    count_reviews = serializers.SerializerMethodField(read_only=True)
+    brand = SupplierSerializer(read_only=True)
 
     class Meta:
         model = Product
         fields = ["id", "created_date", "updated_date", "name", "description", "price", "image", "quantity", "category",
-                  "brand", "discount", "images", "average_rating", "count_reviews"]
+                  "brand", "images", "average_rating", "count_reviews", "active"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -48,16 +55,43 @@ class ProductSerializer(ModelSerializer):
         return data
 
     def create(self, validated_data):
-        return Product.objects.create(**validated_data)
+        # Lấy brand từ context
+        brand_id = self.initial_data.get("brand")
+        if not brand_id:
+            raise serializers.ValidationError("Nhà cung cấp không hợp lệ.")
+
+        brand = Supplier.objects.get(pk=brand_id) if brand_id else None
+
+        if not brand:
+            raise serializers.ValidationError("Nhà cung cấp không tồn tại.")
+
+        # Tạo sản phẩm
+        product = Product.objects.create(brand=brand, **validated_data)
+
+        # Tạo ảnh thumbnail từ image chính
+        if product.image:
+            ProductImage.objects.create(link=product.image, product=product)
+
+        # Tạo thêm các ảnh khác nếu có trong context
+        request = self.context.get("request")
+        extra_images = request.FILES.getlist("images") if request else []
+        if extra_images:
+            for img in extra_images:
+                ProductImage.objects.create(link=img, product=product)
+
+        # Mặc định sản phẩm chưa active
+        product.active = False
+        product.save()
+        return product
 
     def get_average_rating(self, obj):
-        reviews = obj.reviews.all()
+        reviews = obj.reviews.filter(reply_id__isnull=True)
         if reviews.exists():
             return reviews.aggregate(avg_rating=Avg('rating'))['avg_rating']
         return 0.0
 
     def get_count_reviews(self, obj):
-        return obj.reviews.count()
+        return obj.reviews.filter(reply_id__isnull=True).count()
 
 
 class UserSerializer(ModelSerializer):
@@ -82,6 +116,7 @@ class UserSerializer(ModelSerializer):
         user.save()
 
         LoyaltyPoint.objects.create(user=user, total_point=0)
+        Cart.objects.create(user=user)
         return user
 
 
@@ -97,15 +132,9 @@ class LoyaltyPointHistorySerializer(ModelSerializer):
         fields = '__all__'
 
 
-class SupplierSerializer(ModelSerializer):
-    class Meta:
-        model = Supplier
-        fields = '__all__'
-
-
 class ReviewImageSerializer(serializers.ModelSerializer):
-    link = serializers.ImageField(write_only=True)   # dùng khi create
-    url = serializers.SerializerMethodField()        # dùng khi read
+    link = serializers.ImageField(write_only=True)  # dùng khi create
+    url = serializers.SerializerMethodField()  # dùng khi read
 
     class Meta:
         model = ReviewImage
@@ -122,21 +151,28 @@ class ReviewSerializer(ModelSerializer):
     images = ReviewImageSerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
     rating_breakdown = serializers.SerializerMethodField()
+    reply = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
-        fields = ['id', 'user', 'product', 'rating', 'comment', 'created_date', 'images', 'rating_breakdown']
+        fields = [
+            'id', 'user', 'product', 'rating', 'comment',
+            'created_date', 'images', 'rating_breakdown', 'reply'
+        ]
 
     def get_rating_breakdown(self, obj):
         breakdown = (
             Review.objects
-            .filter(product=obj.product)
+            .filter(product=obj.product, reply__isnull=True)
             .values('rating')
             .annotate(count=Count('id'))
         )
-
         counter = {item['rating']: item['count'] for item in breakdown}
         return {str(i): counter.get(i, 0) for i in range(1, 6)}
+
+    def get_reply(self, obj):
+        replies = obj.replies.all()
+        return ReviewSerializer(replies, many=True, context=self.context).data
 
 
 class OrderDetailSerializer(ModelSerializer):
@@ -166,38 +202,57 @@ class OrderSerializer(ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
+        request_method = self.context['request'].method
+
         order_details = self.initial_data.get("order_details", [])
-        if not order_details:
-            raise serializers.ValidationError("Đơn hàng phải có ít nhất 1 sản phẩm.")
 
-        voucher_code = self.initial_data.get("discount", None)
-        discount = None
-        if voucher_code:
-            try:
-                discount = Discount.objects.get(pk=voucher_code)
-                now = timezone.now()
-                if not (discount.start_date <= now <= discount.end_date):
-                    raise serializers.ValidationError("Mã giảm giá không hợp lệ hoặc đã hết hạn.")
-            except Discount.DoesNotExist:
-                raise serializers.ValidationError("Mã giảm giá không tồn tại.")
+        # Chỉ bắt buộc order_details khi tạo mới
+        if request_method == "POST":
+            if not order_details:
+                raise serializers.ValidationError("Đơn hàng phải có ít nhất 1 sản phẩm.")
 
-        total_price = 0
-        for detail in order_details:
-            try:
-                product = Product.objects.get(pk=detail["product_id"])
-                price = product.price
-                if discount and product.discount.filter(pk=discount.pk).exists():
-                    price = (price - (price * discount.discount / 100))
-                total_price += (price * detail["quantity"])
-            except Product.DoesNotExist:
-                raise serializers.ValidationError(f"Sản phẩm id={detail['product_id']} không tồn tại")
+        # Nếu PATCH mà có gửi order_details thì vẫn validate như cũ
+        if order_details:
+            voucher_code = self.initial_data.get("discount", None)
+            discount = None
+            if voucher_code:
+                try:
+                    discount = Discount.objects.get(pk=voucher_code)
+                    now = timezone.now()
+                    if not (discount.start_date <= now <= discount.end_date):
+                        raise serializers.ValidationError("Mã giảm giá không hợp lệ hoặc đã hết hạn.")
+                    count = 0
+                    for detail in order_details:
+                        try:
+                            product = Product.objects.get(pk=detail["product_id"])
+                            if discount.products.filter(pk=product.pk).exists():
+                                count += 1
+                        except Product.DoesNotExist:
+                            raise serializers.ValidationError(f"Sản phẩm id={detail['product_id']} không tồn tại")
 
-        if total_price <= 0:
-            raise serializers.ValidationError("Tổng tiền phải lớn hơn 0.")
+                    if count < 1:
+                        raise serializers.ValidationError("Mã giảm giá không áp dụng cho các sản phẩm trong giỏ hàng.")
+                except Discount.DoesNotExist:
+                    raise serializers.ValidationError("Mã giảm giá không tồn tại.")
 
-        # gán thêm vào validated_data để dùng trong create
-        data["total_price"] = total_price
-        data["order_details"] = order_details
+            total_price = 0
+            for detail in order_details:
+                try:
+                    product = Product.objects.get(pk=detail["product_id"])
+                    price = product.price
+                    if discount and discount.products.filter(pk=product.pk).exists():
+                        price = (price - (price * discount.discount / 100))
+                    total_price += (price * detail["quantity"])
+                except Product.DoesNotExist:
+                    raise serializers.ValidationError(f"Sản phẩm id={detail['product_id']} không tồn tại")
+
+            if total_price <= 0:
+                raise serializers.ValidationError("Tổng tiền phải lớn hơn 0.")
+
+            # Gán thêm vào validated_data
+            data["total_price"] = total_price
+            data["order_details"] = order_details
+
         return data
 
     def create(self, validated_data):
@@ -247,37 +302,45 @@ class OrderSerializer(ModelSerializer):
                     type=LoyaltyPointHistory.Type.REDEEM,
                     order=order
                 )
-        send_order_success_email(order=order)
+        if order.payment_method == Order.PaymentMethod.CASH:
+            send_order_success_email(order=order)
         return order
 
 
 class PaymentSerializer(ModelSerializer):
-    method = serializers.CharField(required=False)  # Thêm trường method để chọn phương thức
+    method = serializers.CharField(required=False)
 
     class Meta:
         model = Payment
         fields = '__all__'
 
 
-class DiscountSerializer(ModelSerializer):
+class GoodsReceiptDetailSerializer(ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
     class Meta:
-        model = Discount
-        fields = '__all__'
+        model = GoodsReceiptDetail
+        fields = ['id', 'goods_receipt', 'product', 'quantity']
 
 
-class GoodsReceiptSerializer(ModelSerializer):
+class GoodsReceiptSerializer(serializers.ModelSerializer):
+    # GET: hiển thị info supplier
+    supplier = SupplierSerializer(read_only=True)
+    user = UserSerializer(read_only=True)
+    goods_receipt_details = GoodsReceiptDetailSerializer(many=True, read_only=True)
+
+    # POST: nhận supplier_id
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(),
+        write_only=True,
+        source='supplier'  # khi create sẽ map sang field supplier
+    )
+
     class Meta:
         model = GoodsReceipt
-        fields = '__all__'
+        fields = ['id', 'created_date', 'updated_date', 'supplier', 'supplier_id', 'user', 'goods_receipt_details']
 
     def validate(self, attrs):
-        supplier = attrs.get('supplier')
-        if not supplier:
-            raise serializers.ValidationError("Nhà cung cấp không được để trống.")
-
-        supplier = Supplier.objects.filter(id=supplier.id).first()
-        if not supplier:
-            raise serializers.ValidationError("Nhà cung cấp không tồn tại.")
         products = self.initial_data.get("goods_receipt_details", [])
         if not products:
             raise serializers.ValidationError("Phiếu nhập hàng phải có ít nhất 1 sản phẩm.")
@@ -285,26 +348,21 @@ class GoodsReceiptSerializer(ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        # Kiểm tra sản phẩm đúng với nhà cung cấp
-        supplier_id = validated_data.get('supplier')
-        supplier = Supplier.objects.get(id=supplier_id.id)
-        for item in self.initial_data.get("goods_receipt_details", []):
+        products_data = self.initial_data.get("goods_receipt_details", [])
+        supplier = validated_data.get('supplier')
+
+        goods_receipt = GoodsReceipt.objects.create(user=user, supplier=supplier)
+
+        for item in products_data:
             try:
                 product = Product.objects.get(pk=item["product_id"])
                 if product.brand != supplier:
                     raise serializers.ValidationError(
-                        f"Sản phẩm id={item['product_id']} không thuộc nhà cung cấp {supplier.name}")
-            except Product.DoesNotExist:
-                raise serializers.ValidationError(f"Sản phẩm id={item['product_id']} không tồn tại")
-
-        products = self.initial_data.get("goods_receipt_details", [])
-        goods_receipt = GoodsReceipt.objects.create(user=user, **validated_data)
-        # Cập nhật số lượng sản phẩm và tạo chi tiết phiếu nhập hàng
-        for item in products:
-            try:
-                product = Product.objects.get(pk=item["product_id"])
+                        f"Sản phẩm id={item['product_id']} không thuộc nhà cung cấp {supplier.name}"
+                    )
                 product.quantity += item["quantity"]
                 product.save()
+
                 GoodsReceiptDetail.objects.create(
                     goods_receipt=goods_receipt,
                     product=product,
@@ -312,13 +370,8 @@ class GoodsReceiptSerializer(ModelSerializer):
                 )
             except Product.DoesNotExist:
                 raise serializers.ValidationError(f"Sản phẩm id={item['product_id']} không tồn tại")
+
         return goods_receipt
-
-
-class GoodsReceiptDetailSerializer(ModelSerializer):
-    class Meta:
-        model = GoodsReceiptDetail
-        fields = '__all__'
 
 
 class CartItemSerializer(ModelSerializer):
@@ -330,7 +383,7 @@ class CartItemSerializer(ModelSerializer):
 
 
 class CartSerializer(ModelSerializer):
-    items = CartItemSerializer(many=True)
+    items = CartItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Cart
@@ -339,8 +392,16 @@ class CartSerializer(ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        cart = Cart.objects.create(user=user, **validated_data)
+        # chỉ tạo giỏ hàng với user, không cần items
+        cart, created = Cart.objects.get_or_create(user=user)
         return cart
+
+
+class DiscountSerializer(ModelSerializer):
+    products = ProductSerializer(many=True, read_only=True)
+    class Meta:
+        model = Discount
+        fields = ['id', 'code', 'start_date', 'end_date', 'discount', 'products', 'created_date', 'updated_date']
 
 
 class OTPSerializer(serializers.Serializer):

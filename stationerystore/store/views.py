@@ -2,10 +2,15 @@ import os
 import random
 from datetime import timedelta
 
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from django.db.models.functions import TruncMonth
+from django.shortcuts import redirect, get_object_or_404
 from django.utils import timezone
 from google import genai
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from oauthlib.uri_validate import query
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action, permission_classes
@@ -15,7 +20,7 @@ from rest_framework.response import Response
 from stationerystore import settings
 from store import serializers, paginators, perms
 from store.models import Category, Supplier, Product, Review, User, Order, Discount, GoodsReceipt, Payment, \
-    ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, Cart, CartItem, OTP
+    ProductImage, ReviewImage, LoyaltyPoint, LoyaltyPointHistory, Cart, CartItem, OTP, OrderDetail
 from store.utils import vnpay, momo, email
 
 
@@ -44,7 +49,8 @@ class ProductImageViewSet(viewsets.ViewSet, generics.ListAPIView, generics.Creat
     lookup_field = "pk"
 
 
-class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.RetrieveAPIView):
+class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.RetrieveAPIView,
+                     generics.UpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = serializers.ProductSerializer
     pagination_class = paginators.ProductPagination
@@ -52,6 +58,10 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
     def get_permissions(self):
         if self.action == "get_views_of_product" and self.request.method == "POST":
             return [permissions.IsAuthenticated()]
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [perms.IsManager()]
+        if self.action == "create":
+            return [perms.IsManagerOrStaff()]
         return [AllowAny()]
 
     def get_queryset(self):
@@ -69,7 +79,6 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
             brand_id = self.request.query_params.get("brand_id")
             if brand_id:
                 query = query.filter(brand_id=brand_id)
-                self.pagination_class = None  # Tắt phân trang nếu lọc theo brand
 
             price_min = self.request.query_params.get("price_min")
             if price_min:
@@ -81,14 +90,25 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
 
         return query
 
+    @action(methods=['get'], detail=False, url_path='pending', permission_classes=[perms.IsManager])
+    def get_pending_products(self, request):
+        pending_products = self.queryset.filter(active=False)
+        paginator = paginators.ProductPagination()
+        page = paginator.paginate_queryset(pending_products, request)
+        if page:
+            serializer = serializers.ProductSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        return Response(serializers.ProductSerializer(pending_products, many=True).data, status=status.HTTP_200_OK)
+
     @action(methods=['get'], detail=True, url_path='discounts')
     def get_discounts_of_product(self, request, pk):
         product = self.get_object()
-        discounts = product.discount.all()
+        discounts = Discount.objects.filter(products=product, end_date__gte=timezone.now())
         return Response(serializers.DiscountSerializer(discounts, many=True).data, status=status.HTTP_200_OK)
 
     @action(methods=["get", "post"], detail=True, url_path="reviews")
-    def get_views_of_product(self, request, pk):
+    def get_reviews_of_product(self, request, pk):
         if request.method == "POST":
             serializer = serializers.ReviewSerializer(data={
                 "rating": request.data.get("rating"),
@@ -109,7 +129,7 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
                 status=status.HTTP_201_CREATED
             )
 
-        reviews = self.get_object().reviews.select_related('user').all()
+        reviews = self.get_object().reviews.filter(reply_id__isnull=True)
         paginator = paginators.ReviewPagination()
         page = paginator.paginate_queryset(reviews, request)
         if page:
@@ -125,11 +145,46 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        if self.action.__eq__("create"):
+        if self.action.__eq__("create") or self.action.__eq__("google_login"):
             return [AllowAny()]
-        if self.action.__eq__("verify_user") or self.action.__eq__("send_otp"):
+        if self.action.__eq__("verify_user") or self.action.__eq__("send_otp") or self.action.__eq__("reset_password"):
             return [AllowAny()]
         return [permissions.IsAuthenticated()]
+
+    @action(methods=["post"], detail=False, url_path="google-login", permission_classes=[AllowAny])
+    def google_login(self, request):
+        token = request.data.get("token")
+        if not token:
+            return Response({"detail": "Thiếu token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                "273666812691-tgnf43sjatjjh7hvcqdi7o89qir25d7r.apps.googleusercontent.com"
+            )
+
+            email = idinfo.get("email")
+            name = idinfo.get("name")
+            avatar = idinfo.get("picture")
+
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={"username": email.split("@")[0], "is_active": True}
+            )
+
+            if created:
+                user.first_name = name
+                user.save()
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh)
+            })
+
+        except ValueError as e:
+            return Response({"detail": f"Token không hợp lệ: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(methods=["get", "patch"], detail=False, url_path="profile",
             permission_classes=[permissions.IsAuthenticated])
@@ -145,6 +200,51 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView
             user.save()
 
         return Response(serializers.UserSerializer(request.user).data)
+
+    @action(methods=['patch'], detail=False, url_path='change-password',
+            permission_classes=[permissions.IsAuthenticated])
+    def change_password(self, request):
+        user = request.user
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+
+        if not current_password or not new_password:
+            return Response({"detail": "Cả mật khẩu hiện tại và mật khẩu mới đều là bắt buộc."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.check_password(current_password):
+            return Response({"detail": "Mật khẩu hiện tại không đúng."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({"detail": "Đổi mật khẩu thành công."}, status=status.HTTP_200_OK)
+
+    @action(methods=["patch"], detail=False, url_path="reset-password")
+    def reset_password(self, request):
+        email_address = request.data.get("email")
+        if not email_address:
+            return Response({"detail": "Email là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+        if not User.objects.filter(email=email_address).exists():
+            return Response({"detail": "Địa chỉ email không được tìm thấy"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = User.objects.get(email=email_address)
+        otp_code = request.data.get('otp_code')
+        if not otp_code:
+            return Response({"detail": "Mã OTP là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+        otp_record = OTP.objects.filter(user=user, code=otp_code).order_by('-created_at').first()
+        if not otp_record:
+            return Response({"detail": "Mã OTP không hợp lệ"}, status=status.HTTP_400_BAD_REQUEST)
+        if timezone.now() > otp_record.created_at + timedelta(minutes=10):
+            return Response({"detail": "Mã OTP đã hết hạn"}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_password = request.data.get("new_password")
+        if not new_password:
+            return Response({"detail": "Mật khẩu mới là bắt buộc"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        otp_record.delete()
+        return Response({"detail": "Đặt lại mật khẩu thành công"}, status=status.HTTP_200_OK)
 
     @action(methods=["patch"], detail=False, url_path="verified")
     def verify_user(self, request):
@@ -205,7 +305,7 @@ class LoyaltyPointHistoryViewSet(viewsets.ViewSet, generics.ListAPIView):
 class SupplierViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = Supplier.objects.all()
     serializer_class = serializers.SupplierSerializer
-    permission_classes = [perms.IsStaff]
+    permission_classes = [perms.IsStaff | perms.IsManager]
 
 
 class ReviewViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
@@ -219,12 +319,53 @@ class ReviewViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIV
             return [AllowAny()]
         return super().get_permissions()
 
+    @action(methods=["post"], detail=True, url_path="reply", permission_classes=[perms.IsManagerOrStaff])
+    def reply_to_review(self, request, pk):
+        review = self.get_object()
+        reply_content = request.data.get("reply")
 
-class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView, generics.CreateAPIView):
+        if not reply_content:
+            return Response({"detail": "Reply content is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tạo reply gắn với review gốc
+        reply = Review.objects.create(
+            rating=0,
+            comment=reply_content,
+            user=request.user,
+            product=review.product,
+            reply=review  # reply trỏ về review gốc
+        )
+
+        return Response(
+            serializers.ReviewSerializer(reply).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = OrderDetail.objects.all()
+    serializer_class = serializers.OrderDetailSerializer
+    permission_classes = [perms.IsOrderOwner | perms.IsStaff | perms.IsManager]
+
+    def get_permissions(self):
+        if self.action.__eq__("list") or self.request.method == "GET":
+            return [perms.IsOrderOwner()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        query = self.queryset
+        order_id = self.request.query_params.get("order_id")
+        if order_id:
+            query = query.filter(order__id=order_id)
+        return query
+
+
+class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView, generics.CreateAPIView,
+                   generics.UpdateAPIView):
     queryset = Order.objects.all()
     serializer_class = serializers.OrderSerializer
     pagination_class = paginators.OrderPagination
-    permission_classes = [perms.IsOrderOwner | perms.IsStaff]
+    permission_classes = [perms.IsOrderOwner | perms.IsStaff | perms.IsManager]
 
     def get_queryset(self):
         query = self.queryset
@@ -233,6 +374,17 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
             if status_param:
                 query = query.filter(status=status_param)
         return query
+
+    def partial_update(self, request, *args, **kwargs):
+        """ Cập nhật một phần của đơn hàng (chỉ dành cho nhân viên và quản lý)"""
+        order = self.get_object()
+        if order.status == Order.Status.CANCELED:
+            return Response({"detail": "Không thể cập nhật đơn hàng đã bị huỷ"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(order, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     @action(methods=["get"], detail=True, url_path="detail")
     def get_order_details(self, request, pk):
@@ -295,9 +447,8 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
 
 
 class DiscountViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
-    queryset = Discount.objects.all()
+    queryset = Discount.objects.filter(end_date__gte=timezone.now())
     serializer_class = serializers.DiscountSerializer
-    pagination_class = paginators.DiscountPagination
 
     def get_queryset(self):
         query = self.queryset
@@ -313,37 +464,57 @@ class PaymentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
     serializer_class = serializers.PaymentSerializer
     permission_classes = [perms.IsStaff | perms.IsOrderOwner]
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         order = serializer.validated_data['order']
-        method = serializer.validated_data.get('method', Payment.Method.CASH)
+        method = order.payment_method
 
+        # Tránh tạo trùng Payment pending với MoMo
+        if method != Payment.Method.MOMO:
+            payment = Payment.objects.create(
+                order=order,
+                amount=order.total_price,
+                method=method,
+                status=Payment.Status.PENDING
+            )
+
+        payment_url = None
         if method == Payment.Method.VNPAY:
             payment_url = vnpay.create_vnpay_url(request, order)
         elif method == Payment.Method.MOMO:
-            # redirect_url và ipn_url có thể lấy từ settings hoặc request
-            from django.conf import settings
-            redirect_url = getattr(settings, 'MOMO_REDIRECT_URL',
-                                   'http://localhost:8000/b3088a6a-2d17-4f8d-a383-71389a6c600b')
-            ipn_url = getattr(settings, 'MOMO_IPN_URL', 'https://localhost:8000/b3088a6a-2d17-4f8d-a383-71389a6c600b')
+            redirect_url = getattr(settings, 'FRONTEND_CALLBACK_URL', 'http://localhost:3000/payment/callback')
+            ipn_url = getattr(settings, 'MOMO_IPN_URL', 'http://localhost:8000/payments/momo_ipn')
             payment_url = momo.create_momo_url(order, redirect_url, ipn_url)
-        else:
-            payment_url = None
 
-        return Response({"payment_url": payment_url}, status=status.HTTP_200_OK)
+        return Response({
+            "payment_url": payment_url
+        }, status=status.HTTP_201_CREATED)
 
-    @action(methods=["get"], detail=False, url_path="vnpay_return", permission_classes=[])
-    def vnpay_return(self, request):
-        return vnpay.payment_ipn(request)
+    @action(methods=["get"], detail=False, url_path="verify", permission_classes=[])
+    def verify_payment(self, request):
+        order_id = request.query_params.get("order_id")
+        method = request.query_params.get("method")
+        result_code = request.query_params.get("result_code")
+        order = get_object_or_404(Order, id=order_id)
+        # Check thành công
+        if result_code not in ["00", "0"]:
+            email.send_order_success_email(order=order)
+            return Response({
+                "order_id": order.id,
+                "success": False
+            })
 
-    @action(methods=["post"], detail=False, url_path="momo_ipn", permission_classes=[])
-    def momo_ipn(self, request):
-        # Xử lý callback từ Momo (tùy chỉnh theo yêu cầu)
-        data = request.data
-        # TODO: kiểm tra và cập nhật trạng thái đơn hàng
-        return Response({"message": "IPN từ Momo nhận thành công", "data": data})
+        payment = Payment.objects.filter(order=order, method=method).last()
+        payment.status = Payment.Status.SUCCESS
+        payment.save()
+        order.status = Order.Status.PAID
+        order.save()
+        email.send_order_success_email(order=order)
+        return Response({
+            "order_id": order.id,
+            "success": True
+        })
 
     @action(methods=["get"], detail=True, url_path="payment-details",
             permission_classes=[perms.IsStaff | perms.IsOrderOwner])
@@ -358,7 +529,7 @@ class PaymentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIV
 class GoodsReceiptViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView):
     queryset = GoodsReceipt.objects.all()
     serializer_class = serializers.GoodsReceiptSerializer
-    permission_classes = [perms.IsStaff]
+    permission_classes = [perms.IsStaff | perms.IsManager]
 
     @action(methods=["get"], detail=True, url_path="details", permission_classes=[perms.IsStaff])
     def get_goods_receipt_details(self, request, pk):
@@ -452,6 +623,7 @@ class CartViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView
         except Cart.DoesNotExist:
             return Response({"detail": "Giỏ hàng không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
 
+
 class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
     serializer_class = serializers.OTPSerializer
 
@@ -464,8 +636,8 @@ class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
             return Response({"detail": "Địa chỉ email không được tìm thấy"}, status=status.HTTP_404_NOT_FOUND)
 
         user = User.objects.get(email=email_address)
-        if user.is_active == True:
-            return Response({"detail": "Tài khoản đã được xác thực"}, status=status.HTTP_400_BAD_REQUEST)
+        # if user.is_active == True:
+        #     return Response({"detail": "Tài khoản đã được xác thực"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Tạo mã OTP ngẫu nhiên
         otp = random.randint(100000, 999999)
@@ -485,6 +657,21 @@ class OTPViewSet(viewsets.ViewSet, generics.CreateAPIView):
 class ReportViewSet(viewsets.ViewSet):
     permission_classes = [perms.IsStaff | perms.IsManager]
 
+    @action(methods=['get'], detail=False, url_path='revenue-month-present')
+    def get_revenue_month_present(self, request):
+        current_date = timezone.now()
+        current_month = current_date.month
+        current_year = current_date.year
+
+        revenue = Order.objects.filter(
+            status=Order.Status.PAID,
+            created_date__year=current_year,
+            created_date__month=current_month
+        ).aggregate(total=Sum('total_price'))['total'] or 0
+
+        return Response({"month": current_month, "year": current_year, "revenue": revenue},
+                        status=status.HTTP_200_OK)
+
     @action(methods=['get'], detail=False, url_path='total-revenue')
     def get_total_revenue(self, request):
         # Lấy tổng doanh thu từ các đơn hàng đã thanh toán
@@ -496,7 +683,7 @@ class ReportViewSet(viewsets.ViewSet):
     def get_monthly_revenue(self, request):
         # Lấy doanh thu theo tháng trong năm hiện tại
         current_year = timezone.now().year
-        revenue_data = (Order.objects.filter(status=Order.Status.PAID, created_date__year=current_year)
+        revenue_data = (Order.objects.filter(created_date__year=current_year).exclude(status=Order.Status.CANCELED)
                         .annotate(month=TruncMonth('created_date'))
                         .values('month')
                         .annotate(total_revenue=Sum('total_price'))
@@ -515,27 +702,32 @@ class ReportViewSet(viewsets.ViewSet):
 
     @action(methods=['get'], detail=False, url_path='top-products')
     def get_top_selling_products(self, request):
-        # Lấy top 5 sản phẩm bán chạy nhất
+        # Lấy top 10 sản phẩm bán chạy nhất
         top_products = (Order.objects.filter(status=Order.Status.PAID)
                         .values('orderdetail__product__id', 'orderdetail__product__name')
                         .annotate(total_sold=Sum('orderdetail__quantity'))
-                        .order_by('-total_sold')[:5])
+                        .order_by('-total_sold')[:10])
 
         return Response(top_products, status=status.HTTP_200_OK)
-
-    @action(methods=['get'], detail=False, url_path='today-orders')
-    def get_today_orders(self, request):
-        today = timezone.now().date()
-        today_orders = Order.objects.filter(created_date__date=today)
-        serializer = serializers.OrderSerializer(today_orders, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='today-revenue')
     def get_today_revenue(self, request):
         today = timezone.now().date()
-        today_revenue = Order.objects.filter(created_date__date=today).exclude(status=Order.Status.CANCELED).aggregate(
-            total=Sum('total_price'))['total'] or 0
-        return Response({"today_revenue": today_revenue}, status=status.HTTP_200_OK)
+
+        today_stats = Order.objects.filter(created_date__date=today).exclude(
+            status=Order.Status.CANCELED
+        ).aggregate(
+            total_revenue=Sum('total_price'),
+            total_orders=Count('id')
+        )
+
+        data = {
+            "date": today.strftime("%Y-%m-%d"),
+            "revenue": today_stats['total_revenue'] or 0,
+            "count_order": today_stats['total_orders']
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='revenue-by-date')
     def get_revenue_by_date(self, request):
@@ -584,52 +776,71 @@ class ReportViewSet(viewsets.ViewSet):
 
     @action(methods=['get'], detail=False, url_path='revenue-by-quarter')
     def get_revenue_by_quarter(self, request):
-        quarter_str = request.query_params.get('quarter')
         year_str = request.query_params.get('year')
-        if not quarter_str or not year_str:
-            return Response({"detail": "Bạn chưa chọn thời gian"}, status=status.HTTP_400_BAD_REQUEST)
+        if not year_str:
+            return Response({"detail": "Bạn chưa chọn năm"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            quarter = int(quarter_str)
             year = int(year_str)
-            if quarter not in [1, 2, 3, 4]:
-                raise ValueError
         except ValueError:
-            return Response({"detail": "Định dạng quý không hợp lệ. Quý phải là số từ 1 đến 4 và năm định dạng: YYYY."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Năm không hợp lệ"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if quarter == 1:
-            start_month, end_month = 1, 3
-        elif quarter == 2:
-            start_month, end_month = 4, 6
-        elif quarter == 3:
-            start_month, end_month = 7, 9
-        else:
-            start_month, end_month = 10, 12
+        data = []
+        for quarter in range(1, 5):
+            if quarter == 1:
+                start_month, end_month = 1, 3
+            elif quarter == 2:
+                start_month, end_month = 4, 6
+            elif quarter == 3:
+                start_month, end_month = 7, 9
+            else:
+                start_month, end_month = 10, 12
 
-        revenue = Order.objects.filter(
-            created_date__year=year,
-            created_date__month__gte=start_month,
-            created_date__month__lte=end_month
-        ).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
+            revenue = Order.objects.filter(
+                created_date__year=year,
+                created_date__month__gte=start_month,
+                created_date__month__lte=end_month
+            ).exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))['total'] or 0
 
-        return Response({"quarter": quarter_str, "year": year_str, "revenue": revenue}, status=status.HTTP_200_OK)
+            data.append({
+                "quarter": f"Quý {quarter}",
+                "year": year,
+                "revenue": revenue
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class GeminiViewSet(viewsets.ViewSet):
-    @action(methods=['post'], detail=False, url_path='ask')
-    def ask_question(self, request):
+    @action(methods=['post'], detail=False, url_path='customer-ask')
+    def customer_ask(self, request):
         question = request.data.get('question')
         if not question:
             return Response({"detail": "Bạn chưa nhập câu hỏi"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            categories = Category.objects.values_list("name", flat=True)
+            category_list = ", ".join(categories)
+
+            products = Product.objects.filter(active=True).values_list("name", flat=True)
+            product_list = ", ".join(products[:20])  # tránh context quá dài
+
+            context = f"""
+            Bạn là trợ lý AI cho cửa hàng văn phòng phẩm Open Stationery Store.
+            Danh mục sản phẩm hiện có: {category_list}.
+            Các sản phẩm hiện có: {Product.objects.filter(active=True).count()} sản phẩm.
+            Danh sách một số sản phẩm: {product_list}.
+            Khách hàng có thể hỏi về giá cả, chi tiết sản phẩm, tình trạng kho, chính sách cửa hàng, v.v.
+            Dùng dữ liệu sản phẩm nội bộ, hiện có để trả lời câu hỏi của khách hàng. Trong sản phẩm có để giá bán.
+            Hãy sử dụng dữ liệu này để trả lời các câu hỏi của khách hàng một cách chính xác.
+            """
+
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY))
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=question
+                contents=f"{context}\n\nKhách hàng hỏi: {question}"
             )
-            answer = response.text.strip()
-            return Response({"answer": answer}, status=status.HTTP_200_OK)
+            return Response({"answer": response.text.strip()}, status=status.HTTP_200_OK)
+
         except Exception as e:
             return Response({"detail": f"Lỗi khi gọi Gemini API: {str(e)}"},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)

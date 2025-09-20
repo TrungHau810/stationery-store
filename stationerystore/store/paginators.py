@@ -2,7 +2,7 @@ from rest_framework.pagination import PageNumberPagination
 
 
 class ProductPagination(PageNumberPagination):
-    page_size = 8
+    page_size = 10
 
 
 class ReviewPagination(PageNumberPagination):
@@ -10,11 +10,7 @@ class ReviewPagination(PageNumberPagination):
 
 
 class OrderPagination(PageNumberPagination):
-    page_size = 10
-
-
-class DiscountPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 4
 
 
 class LoyaltyPointHistoryPagination(PageNumberPagination):
