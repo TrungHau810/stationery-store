@@ -1,14 +1,14 @@
-import { Carousel } from "react-bootstrap";
-import ViewImage from "../ViewImage";
 import { useContext, useState } from "react";
 import { MyUserContext } from "../../../configs/Contexts";
 import CarouselImage from "./CarouselImage";
+import { useNavigate } from "react-router-dom";
 
 
 const ProductInfo = ({ product, addToCart }) => {
 
     const [quantity, setQuantity] = useState(1);
     const [user] = useContext(MyUserContext);
+    const nav = useNavigate();
 
     // fallback ảnh nếu không có
     const productImages = [product.image, ...(product.images || []).map(img => img.link)].filter(Boolean);
@@ -43,11 +43,12 @@ const ProductInfo = ({ product, addToCart }) => {
                 {/* Thương hiệu + tình trạng */}
                 <p className="text-gray-600 mb-2">
                     Thương hiệu:{" "}
-                    <span className="text-blue-600">{product.brand}</span> |{" "}
+                    <span className="text-blue-600">{product.brand.name}</span> |{" "}
                     <span className={`ml-1 font-semibold ${product.quantity > 0 ? "text-green-600" : "text-red-500"}`}>
                         {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
                     </span>
                 </p>
+                <p className="font-semibold ml-1">Còn lại {product.quantity} sản phẩm</p>
                 <p className="text-sm text-gray-500 mb-4">Mã sản phẩm: {product.id}</p>
 
                 {/* Giá */}
@@ -55,7 +56,7 @@ const ProductInfo = ({ product, addToCart }) => {
                     <span className="text-3xl font-bold text-blue-600">
                         {Number(product.price).toLocaleString("vi-VN")}₫
                     </span>
-                    {/* TODO: thay -20% bằng logic từ discount thực tế */}
+                    {/* Tăng 20% so giá thực tế */}
                     <span className="line-through text-gray-400">
                         {(Number(product.price) * 1.2).toLocaleString("vi-VN")}₫
                     </span>
@@ -63,52 +64,59 @@ const ProductInfo = ({ product, addToCart }) => {
                         -20%
                     </span>
                 </div>
+                {!user || user.role === "customer" ? (
+                    <>
+                        <div className="mb-4">
+                            <span className="font-semibold">Số lượng:</span>
+                            <div className="flex items-center mt-2 border rounded w-32">
+                                <button
+                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                    className="px-3 py-1 border-r hover:bg-gray-100"
+                                >
+                                    -
+                                </button>
+                                <span className="flex-1 text-center">{quantity}</span>
+                                <button
+                                    onClick={() => setQuantity(quantity + 1)}
+                                    className="px-3 py-1 border-l hover:bg-gray-100"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
 
-                {/* Số lượng */}
-                <div className="mb-4">
-                    <span className="font-semibold">Số lượng:</span>
-                    <div className="flex items-center mt-2 border rounded w-32">
-                        <button
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            className="px-3 py-1 border-r hover:bg-gray-100"
-                        >
-                            -
-                        </button>
-                        <span className="flex-1 text-center">{quantity}</span>
-                        <button
-                            onClick={() => setQuantity(quantity + 1)}
-                            className="px-3 py-1 border-l hover:bg-gray-100"
-                        >
-                            +
-                        </button>
-                    </div>
-                </div>
-
-                {/* Nút hành động */}
-                <div className="flex gap-3 mb-6">
-                    {product.quantity > 0 ? (
-                        <button
-                            className="flex-1 border-2 border-blue-500 text-blue-500 py-3 rounded hover:bg-blue-50 transition"
-                            onClick={() => addToCart({ user, product, quantity })}
-                        >
-                            Thêm vào giỏ
-                        </button>
-                    ) : (
-                        <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
-                            Hết hàng
-                        </button>
-                    )}
-                    {product.quantity > 0 ? (
-                        <button className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded hover:from-blue-600 hover:to-blue-700 transition transform active:scale-95">
-                            Mua ngay
-                        </button>
-                    ) : (
-                        <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
-                            Không thể mua
-                        </button>
-                    )}
-                </div>
-
+                        {/* Nút hành động */}
+                        <div className="flex gap-3 mb-6">
+                            {product.quantity > 0 ? (
+                                <button
+                                    className="flex-1 border-2 border-blue-500 text-blue-500 py-3 rounded hover:bg-blue-50 transition"
+                                    onClick={() => addToCart({ user, product, quantity })}
+                                >
+                                    Thêm vào giỏ
+                                </button>
+                            ) : (
+                                <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
+                                    Hết hàng
+                                </button>
+                            )}
+                            {product.quantity > 0 ? (
+                                <button className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded hover:from-blue-600 hover:to-blue-700 transition transform active:scale-95"
+                                    onClick={async () => {
+                                        const success = await addToCart({ user, product, quantity: 1 });
+                                        if (success) {
+                                            nav("/cart");
+                                        }
+                                    }}>
+                                    Mua ngay
+                                </button>
+                            ) : (
+                                <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
+                                    Không thể mua
+                                </button>
+                            )}
+                        </div>
+                    </>
+                ) : null}
 
                 {/* Mô tả */}
                 {product.description && (
@@ -120,7 +128,6 @@ const ProductInfo = ({ product, addToCart }) => {
                         />
                     </div>
                 )}
-
             </div>
         </>
     );

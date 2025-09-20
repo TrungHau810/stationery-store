@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ thêm hook điều hướng
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { authApis, endpoint } from "../../configs/Apis";
 import { ArchiveBoxIcon, PlusCircleIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import ReceiptDetail from "../layout/receipt/ReceiptDetail";
+import { MyUserContext } from "../../configs/Contexts";
 
 const ReceiptList = () => {
+    const [user,] = useContext(MyUserContext);
     const [receipts, setReceipts] = useState([]);
-    const [users, setUsers] = useState([]);
-    const [suppliers, setSuppliers] = useState([]);
-    const navigate = useNavigate(); // ✅ dùng để chuyển trang
+    const [selectedReceipt, setSelectedReceipt] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const navigate = useNavigate();
 
     const fetchReceipts = async () => {
         try {
@@ -18,40 +22,20 @@ const ReceiptList = () => {
         }
     };
 
-    const fetchUsers = async () => {
-        try {
-            const response = await authApis().get(endpoint["all_user"]);
-            setUsers(response.data);
-        } catch (error) {
-            console.error("Error fetching users:", error);
-        }
-    };
-
-    const fetchSuppliers = async () => {
-        try {
-            const response = await authApis().get(endpoint["suppliers"]);
-            setSuppliers(response.data);
-        } catch (error) {
-            console.error("Error fetching suppliers:", error);
-        }
-    };
-
     useEffect(() => {
         fetchReceipts();
-        fetchUsers();
-        fetchSuppliers();
     }, []);
 
     return (
         <div className="p-6">
-            {/* 🔹 Nút tạo phiếu nhập */}
+            {/* Nút tạo phiếu nhập */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="flex items-center text-2xl font-bold text-gray-800 gap-2">
                     <ArchiveBoxIcon className="h-7 w-7 text-blue-600" />
                     Danh sách phiếu nhập hàng
                 </h1>
                 <button
-                    onClick={() => navigate("/staff/receipts/new")}
+                    onClick={() => {user.role === "manager" ? navigate("/manager/receipts/new") : navigate("/staff/receipts/new")}}
                     className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
                 >
                     <PlusCircleIcon className="h-6 w-6" />
@@ -80,30 +64,28 @@ const ReceiptList = () => {
                                 className={`hover:bg-gray-50 transition ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                                     }`}
                             >
-                                <td className="py-2 px-4 font-medium">{receipt.id}</td>
-                                <td className="py-2 px-4">{receipt.supplier || "Không có"}</td>
+                                <td className="py-2 px-4 font-medium">#{receipt.id}</td>
+                                <td className="py-2 px-4">#{receipt.supplier.id}</td>
+                                <td className="py-2 px-4">{receipt.supplier.name}</td>
                                 <td className="py-2 px-4">
-                                    {suppliers.find((s) => s.id === receipt.supplier)?.name ||
-                                        "Không có"}
+                                    {new Date(receipt.created_date).toLocaleString("vi-VN", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
                                 </td>
-                                <td className="py-2 px-4">
-                                    {receipt.created_date
-                                        ? new Date(receipt.created_date).toLocaleString("vi-VN", {
-                                            day: "2-digit",
-                                            month: "2-digit",
-                                            year: "numeric",
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                        })
-                                        : "Không có"}
-                                </td>
-                                <td className="py-2 px-4">{receipt.user || "Không có"}</td>
-                                <td className="py-2 px-4">
-                                    {users.find((u) => u.id === receipt.user)?.full_name ||
-                                        "Không có"}
-                                </td>
+                                <td className="py-2 px-4">#{receipt.user.id}</td>
+                                <td className="py-2 px-4">{receipt.user.full_name}</td>
                                 <td className="py-2 px-4 text-center">
-                                    <button className="px-3 py-1 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition">
+                                    <button
+                                        className="px-3 py-1 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition"
+                                        onClick={() => {
+                                            setSelectedReceipt(receipt);
+                                            setShowModal(true);
+                                        }}
+                                    >
                                         Xem chi tiết
                                     </button>
                                 </td>
@@ -112,6 +94,26 @@ const ReceiptList = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Modal hiển thị chi tiết */}
+            {showModal && selectedReceipt && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                    <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl h-[90vh] overflow-auto relative">
+                        {/* Nút đóng */}
+                        <button
+                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                            onClick={() => setShowModal(false)}
+                        >
+                            <XMarkIcon className="h-6 w-6" />
+                        </button>
+
+                        {/* Nội dung chi tiết */}
+                        <div className="p-6">
+                            <ReceiptDetail receipt={selectedReceipt} showModal={showModal} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

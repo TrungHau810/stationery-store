@@ -1,13 +1,11 @@
 import { useContext } from "react";
-import { authApis, endpoint } from "../../configs/Apis";
-import { MyUserContext } from "../../configs/Contexts";
+import { MyCartContext, MyUserContext } from "../../configs/Contexts";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
 import { addToCart } from "../../utils/Cart";
 
 const ProductCard = ({ item }) => {
-
-  const [user,] = useContext(MyUserContext);
+  const [user] = useContext(MyUserContext);
+  const [, dispatchCart] = useContext(MyCartContext);
   const nav = useNavigate();
 
   return (
@@ -32,10 +30,11 @@ const ProductCard = ({ item }) => {
           {item.name}
         </h3>
 
+        {/* Đánh giá sao */}
         <div className="flex items-center gap-1 mb-2">
           {Array.from({ length: 5 }, (_, i) => {
-            const full = i + 1 <= Math.floor(item.average_rating); // sao đầy
-            const half = !full && i < item.average_rating;          // sao nửa
+            const full = i + 1 <= Math.floor(item.average_rating);
+            const half = !full && i < item.average_rating;
             return (
               <svg
                 key={i}
@@ -56,7 +55,7 @@ const ProductCard = ({ item }) => {
                   strokeLinejoin="round"
                   strokeWidth={1}
                   d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 
-             9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                     9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
                 />
               </svg>
             );
@@ -66,6 +65,7 @@ const ProductCard = ({ item }) => {
           </span>
         </div>
 
+        {/* Giá */}
         <div className="flex items-baseline gap-2">
           <p className="text-red-600 font-bold text-lg">
             {Number(item.price).toLocaleString("vi-VN")}₫
@@ -79,15 +79,26 @@ const ProductCard = ({ item }) => {
 
         {/* Buttons */}
         <div className="mt-4 flex gap-2">
-          <button className="flex-1 bg-blue-500 text-white text-sm py-2 rounded-md hover:bg-blue-600 transition" onClick={() => nav(`/product/${item.id}`)}>
+          <button
+            className="flex-1 bg-blue-500 text-white text-sm py-2 rounded-md hover:bg-blue-600 transition"
+            onClick={() => nav(`/product/${item.id}`)}
+          >
             Xem chi tiết
           </button>
+
           {item.quantity > 0 ? (
-            <button className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition" onClick={() => addToCart({ user, product: item })}>
+            <button
+              className="flex-1 bg-red-500 text-white text-sm py-2 rounded-md hover:bg-red-600 transition"
+              onClick={() => addToCart({ user, product: item, dispatchCart })}
+              disabled={user?.role === "manager" || user?.role === "staff"}
+            >
               Thêm vào giỏ
             </button>
           ) : (
-            <button className="flex-1 bg-gray-500 text-white text-sm py-2 rounded-md cursor-not-allowed" disabled>
+            <button
+              className="flex-1 bg-gray-500 text-white text-sm py-2 rounded-md cursor-not-allowed"
+              disabled
+            >
               Hết hàng
             </button>
           )}

@@ -1,4 +1,4 @@
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import { roleLabels } from "../Profile";
 import { Link } from "react-router-dom";
 import { MyUserContext } from "../../configs/Contexts";
@@ -16,13 +16,8 @@ const HomeStaff = () => {
         return "Chào buổi tối";
     };
 
-    useEffect(() => {
-        console.log("User nè:", user);
-    }, []);
-
     return (
         <div className="bg-gray-100 flex flex-col items-center py-10 px-4">
-
             {!user ? (
                 <div className="flex items-center justify-center">
                     <p className="text-gray-500">Vui lòng đăng nhập để tiếp tục</p>

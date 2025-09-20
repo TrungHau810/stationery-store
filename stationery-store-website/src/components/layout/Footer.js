@@ -7,7 +7,7 @@ const Footer = () => {
             <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-12">
                 <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
                     <div className="space-y-4">
-                        <h3 className="text-2xl font-extrabold tracking-wide mb-2">TH Stationery</h3>
+                        <h3 className="text-2xl font-extrabold tracking-wide mb-2">Open Stationery Store</h3>
                         <p className="text-sm text-blue-100 leading-relaxed">
                             Chúng tôi mang đến văn phòng phẩm chất lượng cao, phục vụ học tập và công việc.
                             Sản phẩm tốt nhất, giá cả hợp lý.
@@ -42,7 +42,7 @@ const Footer = () => {
 
             {/* Bản quyền riêng */}
             <div className="bg-blue-800 text-center py-4 text-sm text-white">
-                © {new Date().getFullYear()} TH Stationery. All rights reserved.
+                © {new Date().getFullYear()} Open Stationery Store. All rights reserved.
             </div>
         </footer>
     );

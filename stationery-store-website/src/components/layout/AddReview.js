@@ -4,13 +4,14 @@ import Swal from "sweetalert2";
 import { MyUserContext } from "../../configs/Contexts";
 import { HiX } from "react-icons/hi";
 
-const AddReview = ({ productId, onReviewAdded }) => {
+const AddReview = ({ productId, reloadReviews }) => {
     const [user] = useContext(MyUserContext);
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState("");
     const [images, setImages] = useState([]);
     const [previews, setPreviews] = useState([]);
     const fileInputRef = useRef(null);
+    const [loading, setLoading] = useState(false);
 
     // Tạo preview khi chọn ảnh
     useEffect(() => {
@@ -36,6 +37,7 @@ const AddReview = ({ productId, onReviewAdded }) => {
         }
 
         try {
+            setLoading(true);
             let formData = new FormData();
             formData.append("rating", rating);
             formData.append("comment", comment);
@@ -44,16 +46,19 @@ const AddReview = ({ productId, onReviewAdded }) => {
             const url = endpoint["reviews_of_product"](productId);
             const res = await authApis().post(url, formData);
 
-            Swal.fire({ icon: "success", title: "Cảm ơn bạn đã đánh giá!" });
-
-            // reset form
-            setRating(0);
-            setComment("");
-            setImages([]);
-            if (onReviewAdded) onReviewAdded(res.data);
+            if (res.status === 201) {
+                Swal.fire({ icon: "success", title: "Thành công", text: "Cảm ơn bạn đã đánh giá sản phẩm!" });
+                setRating(0);
+                setComment("");
+                setImages([]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                if (reloadReviews) reloadReviews();
+            }
         } catch (err) {
             console.error("Lỗi khi gửi đánh giá:", err);
             Swal.fire({ icon: "error", title: "Đã xảy ra lỗi", text: err.response?.data?.detail || "Không thể gửi đánh giá" });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -131,8 +136,9 @@ const AddReview = ({ productId, onReviewAdded }) => {
             <button
                 onClick={handleSubmit}
                 className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                disabled={loading}
             >
-                Gửi đánh giá
+                {loading ? "Đang gửi..." : "Gửi đánh giá"}
             </button>
         </div>
     );

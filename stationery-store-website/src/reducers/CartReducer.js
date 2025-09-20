@@ -1,23 +1,14 @@
-import cookie from "react-cookies";
-
-const MyCartReducer = (current, action) => {
-
-    if (action.type === "update") {
-        let total = 0;
-
-        let cart = cookie.load("cart") || null;
-
-        if (cart) {
-
-            for (let x of Object.values(cart)) {
-                total += x["quantity"];
-            }
-        }
-
-        return cart;
+const cartReducer = (state, action) => {
+    switch(action.type){
+        case "update":
+            return action.payload; // set tổng số lượng
+        case "increment":
+            return state + action.payload; // tăng số lượng
+        case "clear":
+            return 0; // xóa giỏ hàng
+        default:
+            return state;
     }
+};
 
-    return current;
-}
-
-export default MyCartReducer;
+export default cartReducer;

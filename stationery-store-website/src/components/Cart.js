@@ -1,9 +1,11 @@
 import { MinusIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { useContext, useEffect, useState } from "react";
-import { authApis, endpoint } from "../configs/Apis";
+import Apis, { authApis, endpoint } from "../configs/Apis";
 import { MyCartContext, MyUserContext } from "../configs/Contexts";
 import Swal from "sweetalert2";
 import { Link, useNavigate } from "react-router-dom";
+import { decreaseQty, increaseQuantity, removeItem } from "../utils/Cart";
+import { LoadingSpinner } from "./layout/LoadingSpinner";
 
 const Cart = () => {
     const [cart, setCart] = useState([]);
@@ -11,6 +13,18 @@ const Cart = () => {
     const [user] = useContext(MyUserContext);
     const [paymentMethod, setPaymentMethod] = useState("cash");
     const [loading, setLoading] = useState(false);
+    const [dataLoading, setDataLoading] = useState(false);
+    const [appliedVoucher, setAppliedVoucher] = useState(null);
+    const [loyaltyPoint, setLoyaltyPoint] = useState({});
+    const [discountByVoucher, setDiscountByVoucher] = useState(0);
+    const [allVouchers, setAllVouchers] = useState([]);
+
+    const discountByPoint = Math.floor(loyaltyPoint.total_point / 1000) * 1000;
+
+    const [receiverName, setReceiverName] = useState("");
+    const [receiverPhone, setReceiverPhone] = useState("");
+    const [address, setAddress] = useState("");
+
     const nav = useNavigate();
 
     const paymentMethods = [
@@ -19,215 +33,258 @@ const Cart = () => {
         { value: "vnpay", label: "Thanh toán trực tuyến VNPAY", logo: "/vnpay.jpg" },
     ];
 
+    // Load cart
     const loadCart = async () => {
         try {
-            let response = await authApis().get(endpoint["cart"]);
-            if (response.data && response.data[0] && response.data[0].items) {
-                setCart(response.data[0].items);
-            }
-        } catch (error) {
-            console.error("Failed to load cart:", error);
+            setDataLoading(true);
+            const res = await authApis().get(endpoint["cart"]);
+            const items = res.data?.[0]?.items || [];
+            setCart(items);
+            const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+            dispatchCart({ type: "update", payload: totalQty });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setDataLoading(false);
         }
     };
 
-    const increaseQuantity = async (item) => {
+    // Fetch all vouchers
+    const fetchAllVouchers = async () => {
         try {
-            setCart((prevCart) =>
-                prevCart.map((ci) =>
-                    ci.product.id === item.product.id ? { ...ci, quantity: ci.quantity + 1 } : ci
-                )
-            );
-            await authApis().post(endpoint["add_to_cart"], { product_id: item.product.id });
-        } catch (error) {
-            console.error("Tăng số lượng thất bại:", error);
-            loadCart();
+            const res = await Apis.get(endpoint["discount"]);
+            setAllVouchers(res.data);
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    const decreaseQty = async (item) => {
+    // Fetch loyalty points
+    const fetchLoyaltyPoints = async () => {
         try {
-            setCart((prevCart) =>
-                prevCart
-                    .map((ci) =>
-                        ci.product.id === item.product.id
-                            ? { ...ci, quantity: Math.max(ci.quantity - 1, 0) }
-                            : ci
-                    )
-                    .filter((ci) => ci.quantity > 0)
-            );
-            await authApis().post(endpoint["remove_from_cart"], { product_id: item.product.id, quantity: 1 });
-        } catch (error) {
-            console.error("Giảm số lượng thất bại:", error);
-            loadCart();
+            setDataLoading(true);
+            const res = await authApis().get(endpoint['loyalty']);
+            setLoyaltyPoint(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setDataLoading(false);
         }
     };
 
-    const removeItem = async (item) => {
-        const result = await Swal.fire({
-            title: "Bạn có chắc chắn?",
-            text: `Bạn muốn xóa "${item.product.name}" khỏi giỏ hàng?`,
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#d33",
-            cancelButtonColor: "#3085d6",
-            confirmButtonText: "Xóa",
-            cancelButtonText: "Hủy",
+    // Apply voucher (khi chọn trong dropdown)
+    const handleApplyVoucher = (voucherId) => {
+        const voucher = allVouchers.find(v => v.id === parseInt(voucherId));
+        console.log("Applying voucher:", voucher);
+        if (!voucher) return setAppliedVoucher(null);
+
+        const isApplicable = cart.some(item =>
+            voucher.products.some(p => p.id === item.product.id)
+        );
+
+        if (!isApplicable) {
+            Swal.fire({
+                icon: "error",
+                title: "Không thể áp dụng voucher",
+                text: "Không có sản phẩm nào trong giỏ đủ điều kiện áp dụng voucher này.",
+            });
+            setAppliedVoucher(null);
+            return;
+        }
+        setAppliedVoucher(voucher);
+        Swal.fire({
+            icon: "success",
+            title: "Áp dụng thành công",
+            text: `Voucher "${voucher.code}" đã được áp dụng.`,
+            timer: 1500
         });
-
-        if (result.isConfirmed) {
-            setCart((prevCart) => prevCart.filter((ci) => ci.id !== item.id));
-            try {
-                await authApis().post(endpoint["remove_from_cart"], {
-                    product_id: item.product.id,
-                    quantity: item.quantity,
-                });
-                Swal.fire({
-                    icon: "success",
-                    title: "Đã xóa!",
-                    text: `"${item.product.name}" đã được xóa khỏi giỏ hàng.`,
-                    timer: 2000,
-                    showConfirmButton: false,
-                });
-            } catch (err) {
-                console.error("Lỗi xóa:", err);
-                loadCart();
-                Swal.fire({ icon: "error", title: "Lỗi", text: "Không thể xóa sản phẩm." });
-            }
-        }
     };
 
-    const handleOrder = async () => {
+    // Theo dõi giỏ hàng + voucher
+    useEffect(() => {
+        if (appliedVoucher) {
+            const eligibleItems = cart.filter(item =>
+                appliedVoucher.products.some(p => p.id === item.product.id)
+            );
+
+            if (eligibleItems.length === 0) {
+                // Không còn sản phẩm phù hợp => hủy voucher
+                setAppliedVoucher(null);
+                setDiscountByVoucher(0);
+                Swal.fire({
+                    icon: "info",
+                    title: "Voucher đã bị hủy",
+                    text: "Giỏ hàng không còn sản phẩm nào đủ điều kiện áp dụng voucher này.",
+                    timer: 2000
+                });
+                return;
+            }
+
+            const eligibleTotal = eligibleItems.reduce(
+                (sum, item) => sum + item.quantity * parseFloat(item.product.price),
+                0
+            );
+            setDiscountByVoucher((appliedVoucher.discount / 100) * eligibleTotal);
+        } else {
+            setDiscountByVoucher(0);
+        }
+    }, [appliedVoucher, cart]);
+
+    useEffect(() => {
+        if (user) {
+            loadCart();
+            fetchLoyaltyPoints();
+            setReceiverName(user.full_name || "");
+            setReceiverPhone(user.number_phone || "");
+            setAddress(user.address || "");
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchAllVouchers();
+    }, []);
+
+    // Đặt hàng
+    const handleConfirmOrder = async () => {
+        if (!receiverName || !receiverPhone || !address) {
+            Swal.fire({ icon: "error", title: "Thiếu thông tin", text: "Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng." });
+            return;
+        }
+
         try {
             setLoading(true);
-            let response = await authApis().post(endpoint["create_order"], {
-                order_details: cart.map((item) => ({
-                    product_id: item.product.id,
-                    quantity: item.quantity,
-                })),
+            const response = await authApis().post(endpoint["create_order"], {
+                order_details: cart.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
+                discount: appliedVoucher?.id || null,
                 payment_method: paymentMethod,
+                name_customer: receiverName,
+                number_phone: receiverPhone,
+                address,
             });
 
             if (response.status === 201) {
-                Swal.fire({
-                    icon: "success",
-                    title: "Đặt hàng thành công",
-                    text: "Cảm ơn bạn đã đặt hàng!",
-                }).then(async () => {
+                Swal.fire({ icon: "success", title: "Đặt hàng thành công" }).then(async () => {
                     await authApis().post(endpoint["clear_cart"]);
                     setCart([]);
-                    dispatchCart({ type: "update", payload: [] });
-                    nav("/purchase");
+                    dispatchCart({ type: "update", payload: 0 });
+                    if (paymentMethod === "cash") return nav("/purchase/orders/" + response.data.id);
+                    nav("/payment", { state: { orderId: response.data.id, paymentMethod, amount: totalAmount } });
                 });
             }
-        } catch (error) {
-            console.error("Lỗi đặt hàng:", error);
-            Swal.fire({
-                icon: "error",
-                title: "Lỗi trong quá trình đặt hàng",
-                text: error.response?.data || "Không thể đặt hàng. Vui lòng thử lại!",
-            });
+        } catch (err) {
+            console.error(err);
+            Swal.fire({ icon: "error", title: "Lỗi đặt hàng" });
         } finally {
             setLoading(false);
         }
     };
 
     const total = cart.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
-
-    useEffect(() => { if (user) loadCart(); }, [user]);
-    useEffect(() => { dispatchCart({ type: "update", payload: cart }); }, [cart]);
+    const totalAmount = total - discountByPoint - discountByVoucher;
 
     return (
-        <>
-            {loading && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-                    <div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
-                </div>
-            )}
+        <div className="bg-gray-50 min-h-screen p-6">
+            {dataLoading ? <LoadingSpinner content="Đang tải giỏ hàng..." /> : null}
 
-            {user ? (
-                <div className="min-h-screen bg-gray-100 p-4">
-                    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-2xl font-bold mb-6">Giỏ hàng của bạn</h2>
-
-                        {cart.length === 0 ? (
-                            <div className="flex flex-col items-center">
-                                <img src="/empty-cart.png" alt="Empty Cart" className="w-48 h-48 mb-6 opacity-80" />
-                                <p className="text-gray-500 mb-4">Giỏ hàng của bạn đang trống.</p>
-                                <Link to="/"
-                                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:scale-105 transition-transform no-underline"
-                                >
-                                    Tiếp tục mua sắm
-                                </Link>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="space-y-4">
-                                    {cart.map((item) => (
-                                        <div key={item.id} className="flex flex-col sm:flex-row items-center gap-4 border-b pb-4 hover:shadow-md rounded-lg p-2 transition duration-200 bg-white">
-                                            <img src={item.product.image} alt={item.product.name} className="w-24 h-24 object-cover rounded" />
-                                            <div className="flex-1">
-                                                <h3 className="text-lg font-semibold">{item.product.name}</h3>
-                                                <p className="text-gray-500">{parseFloat(item.product.price).toLocaleString()} đ</p>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <button onClick={() => decreaseQty(item)} className="p-2 border rounded hover:bg-gray-100">
-                                                        <MinusIcon className="h-5 w-5" />
-                                                    </button>
-                                                    <span className="px-2">{item.quantity}</span>
-                                                    <button onClick={() => increaseQuantity(item)} className="p-2 border rounded hover:bg-gray-100">
-                                                        <PlusIcon className="h-5 w-5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end mt-2 sm:mt-0">
-                                                <p className="font-semibold">{(parseFloat(item.product.price) * item.quantity).toLocaleString()} đ</p>
-                                                <button onClick={() => removeItem(item)} className="text-red-500 hover:text-red-700 mt-2 flex items-center gap-1" title="Xóa sản phẩm">
-                                                    <TrashIcon className="h-6 w-6" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-6 space-y-6">
-                                    {/* Hình thức thanh toán */}
-                                    <div>
-                                        <h3 className="text-lg font-bold mb-3">Hình thức thanh toán</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            {paymentMethods.map((method) => (
-                                                <label key={method.value} className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer transition-transform duration-200 ${paymentMethod === method.value ? "border-green-500 bg-green-50 scale-105" : "border-gray-300"}`}>
-                                                    <input type="radio" name="payment" value={method.value} checked={paymentMethod === method.value} onChange={(e) => setPaymentMethod(e.target.value)} className="hidden" />
-                                                    <img src={method.logo} alt={method.label} className="w-10 h-10 object-contain" />
-                                                    <span className="text-gray-700">{method.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Sticky Footer Tổng tiền + nút đặt hàng */}
-                                <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-inner flex flex-col sm:flex-row justify-between items-center gap-4">
-                                    <span className="text-lg font-bold">Tổng cộng: <span className="text-xl font-bold text-red-600">{total.toLocaleString()} đ</span></span>
-                                    <button onClick={handleOrder} disabled={loading} className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 px-6 rounded-lg hover:scale-105 transition-transform disabled:opacity-50">
-                                        {loading ? "Đang đặt hàng..." : "Đặt hàng"}
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+            {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center mt-20">
+                    <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
+                    <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
+                    <p className="text-gray-500 mb-4">Hãy thêm sản phẩm vào giỏ để tiếp tục mua sắm</p>
+                    <Link to="/" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">Tiếp tục mua sắm</Link>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center bg-gray-100 px-4 text-center pt-10 pb-10">
-                    <img src="/empty-cart.png" alt="Empty Cart" className="w-48 h-48 mb-6 opacity-80" />
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Giỏ hàng của bạn đang trống</h2>
-                    <p className="text-gray-500 mb-4">Vui lòng đăng nhập để tiếp tục mua sắm</p>
-                    <Link to="/login"
-                        className="inline-block bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition-transform no-underline"
-                    >
-                        Đăng nhập ngay
-                    </Link>
+                <div className="max-w-6xl mx-auto space-y-8">
+                    {/* Thông tin nhận hàng */}
+                    <div className="bg-white rounded-2xl shadow p-6">
+                        <h3 className="text-xl font-bold mb-4">Thông tin nhận hàng</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <input placeholder="Họ tên" className="border rounded-lg px-3 py-2" value={receiverName} onChange={e => setReceiverName(e.target.value)} />
+                            <input placeholder="Số điện thoại" className="border rounded-lg px-3 py-2" value={receiverPhone} onChange={e => setReceiverPhone(e.target.value)} />
+                            <textarea placeholder="Địa chỉ nhận hàng" className="border rounded-lg px-3 py-2" value={address} onChange={e => setAddress(e.target.value)} />
+                        </div>
+                    </div>
+
+                    {/* Giỏ hàng */}
+                    <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+                        <h2 className="text-2xl font-bold mb-4">Giỏ hàng của bạn</h2>
+                        {cart.map(item => (
+                            <div key={item.id} className="flex flex-col sm:flex-row items-center gap-4 border-b pb-4">
+                                <div className="relative w-28 h-28">
+                                    <img src={item.product.image} className="w-full h-full object-cover rounded-lg" />
+                                    {appliedVoucher && item.product.discount?.some(d => d.id === appliedVoucher.id) && (
+                                        <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg">-{appliedVoucher.discount}%</span>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-semibold">{item.product.name}</h3>
+                                    <p className="text-gray-500">{parseFloat(item.product.price).toLocaleString()} đ</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <button onClick={() => decreaseQty(item, setCart, loadCart)} className="w-8 h-8 flex items-center justify-center border rounded-full"><MinusIcon className="h-5 w-5" /></button>
+                                        <span>{item.quantity}</span>
+                                        <button onClick={() => increaseQuantity(item, setCart, loadCart)} className="w-8 h-8 flex items-center justify-center border rounded-full"><PlusIcon className="h-5 w-5" /></button>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold">{(parseFloat(item.product.price) * item.quantity).toLocaleString()} đ</p>
+                                    <button onClick={() => removeItem(item, setCart, loadCart)} className="text-red-500 mt-2 inline-flex items-center gap-1"><TrashIcon className="h-5 w-5" /> Xóa</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Voucher */}
+                    <div className="bg-green-50 p-4 rounded-xl shadow border border-green-200 max-w-md">
+                        <h3 className="text-lg font-bold mb-2">Chọn voucher</h3>
+                        <select className="border rounded-lg p-2 w-full" onChange={e => handleApplyVoucher(e.target.value)} value={appliedVoucher?.id || ""}>
+                            <option value="">-- Chọn voucher --</option>
+                            {allVouchers.map(v => (
+                                <option key={v.id} value={v.id}>Mã giảm giá {v.code} - Giảm ngay {v.discount}%</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Thanh toán + Tổng cộng */}
+                    <div className="bg-white p-6 rounded-2xl shadow max-w-6xl mx-auto flex flex-col sm:flex-row gap-6">
+                        {/* Hình thức thanh toán */}
+                        <div className="flex-1 bg-white p-6 rounded-2xl shadow">
+                            <h3 className="text-lg font-bold mb-4">Hình thức thanh toán</h3>
+                            <div className="flex flex-col gap-3">
+                                {paymentMethods.map(pm => (
+                                    <label key={pm.value} className="flex items-center gap-3 cursor-pointer border rounded-lg p-3 hover:bg-gray-50 transition">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            value={pm.value}
+                                            checked={paymentMethod === pm.value}
+                                            onChange={() => setPaymentMethod(pm.value)}
+                                            className="form-radio h-4 w-4"
+                                        />
+                                        <img src={pm.logo} alt={pm.label} className="w-8 h-8 object-contain" />
+                                        <span className="text-gray-700">{pm.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Tổng cộng */}
+                        <div className="flex-1 bg-white p-6 rounded-2xl shadow space-y-3 border border-gray-100">
+                            <div className="flex justify-between text-gray-600"><span>Tạm tính:</span><span>{total.toLocaleString()} đ</span></div>
+                            <div className="flex justify-between text-gray-600"><span>Dùng điểm:</span><span>- {discountByPoint.toLocaleString()} đ</span></div>
+                            <div className="flex justify-between text-gray-600"><span>Voucher:</span><span>- {discountByVoucher.toLocaleString()} đ</span></div>
+                            <div className="flex justify-between text-xl font-bold text-red-600 border-t pt-3"><span>Tổng thanh toán:</span><span>{totalAmount.toLocaleString()} đ</span></div>
+                            <button
+                                disabled={loading}
+                                onClick={handleConfirmOrder}
+                                className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white py-3 rounded-xl shadow-lg hover:scale-105 transition flex items-center justify-center gap-2"
+                            >
+                                {loading? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
-        </>
+        </div>
     );
 };
 
