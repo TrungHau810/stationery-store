@@ -1,5 +1,8 @@
+from datetime import datetime
+
 from django.contrib import admin
 from django.db.models import Sum
+from django.db.models.functions import ExtractYear, ExtractQuarter, ExtractMonth
 from django.template.response import TemplateResponse
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -155,9 +158,18 @@ class PaymentAdmin(admin.ModelAdmin):
 class StationeryAdminSite(admin.AdminSite):
     site_header = 'Hệ thống quản trị Open Stationery Store'
     index_title = 'Hệ thống quản trị'
+    site_title = 'Trang quản trị | Open Stationery Store'
 
     def get_urls(self):
-        return [path('store-stats/', self.store_stats)] + super().get_urls()
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'store-stats/',
+                self.admin_view(self.store_stats),  # quan trọng: dùng admin_view để áp quyền admin
+                name="store_stats"
+            ),
+        ]
+        return custom_urls + urls
 
     class Media:
         css = {
@@ -165,14 +177,77 @@ class StationeryAdminSite(admin.AdminSite):
         }
 
     def store_stats(self, request):
-        total_revenue = Order.objects.exclude(status=Order.Status.CANCELED).aggregate(total=Sum('total_price'))[
-                            'total'] or 0
+        # --- Lấy năm từ query string ---
+        selected_year = request.GET.get("year")
+        if selected_year is None:
+            selected_year = datetime.now().year
+        else:
+            selected_year = int(selected_year)
+
+        # --- Thống kê tổng quan ---
+        total_revenue = (
+                Order.objects.exclude(status=Order.Status.CANCELED)
+                .aggregate(total=Sum('total_price'))['total'] or 0
+        )
         total_users = User.objects.count()
         total_products = Product.objects.count()
         total_orders = Order.objects.count()
         total_categories = Category.objects.count()
         total_suppliers = Supplier.objects.count()
         products = Product.objects.all()
+
+        total_revenue = f'{total_revenue:,.0f}'.replace(",", ".")
+
+        sold_per_product = (
+            OrderDetail.objects
+            .exclude(order__status=Order.Status.CANCELED)
+            .values('product__id', 'product__name', 'product__image')
+            .annotate(total_sold=Sum('quantity'))
+            .order_by('-total_sold')
+        )
+
+        cancel_percent = (
+                Order.objects.filter(status=Order.Status.CANCELED).count() / total_orders * 100
+        ) if total_orders > 0 else 0
+        cancel_order_count = Order.objects.filter(status=Order.Status.CANCELED).count()
+
+        # --- Doanh thu theo tháng (lọc theo năm chọn) ---
+        revenue_per_month = list(
+            Order.objects.exclude(status=Order.Status.CANCELED)
+            .filter(created_date__year=selected_year)
+            .annotate(month=ExtractMonth('created_date'))
+            .values('month')
+            .annotate(total_revenue=Sum('total_price'))
+            .order_by('month')
+        )
+        for r in revenue_per_month:
+            r['total_revenue'] = float(r['total_revenue'] or 0)
+
+        # --- Doanh thu theo quý (lọc theo năm chọn) ---
+        revenue_per_quarter = list(
+            Order.objects.exclude(status=Order.Status.CANCELED)
+            .filter(created_date__year=selected_year)
+            .annotate(quarter=ExtractQuarter('created_date'))
+            .values('quarter')
+            .annotate(total_revenue=Sum('total_price'))
+            .order_by('quarter')
+        )
+        for r in revenue_per_quarter:
+            r['total_revenue'] = float(r['total_revenue'] or 0)
+
+        # --- Doanh thu theo năm (không lọc, để so sánh nhiều năm) ---
+        revenue_per_year = list(
+            Order.objects.exclude(status=Order.Status.CANCELED)
+            .annotate(year=ExtractYear('created_date'))
+            .values('year')
+            .annotate(total_revenue=Sum('total_price'))
+            .order_by('year')
+        )
+        for r in revenue_per_year:
+            r['total_revenue'] = float(r['total_revenue'] or 0)
+
+        # --- Lấy danh sách các năm có dữ liệu ---
+        years = [d.year for d in Order.objects.dates('created_date', 'year', order='DESC')]
 
         return TemplateResponse(request, 'admin/store-stats.html', context={
             'total_revenue': total_revenue,
@@ -182,6 +257,14 @@ class StationeryAdminSite(admin.AdminSite):
             'total_orders': total_orders,
             'total_categories': total_categories,
             'total_suppliers': total_suppliers,
+            'sold_per_product': sold_per_product,
+            'cancel_percent': f'{cancel_percent:.2f}',
+            'cancel_order_count': cancel_order_count,
+            'revenue_per_month': revenue_per_month,
+            'revenue_per_quarter': revenue_per_quarter,
+            'revenue_per_year': revenue_per_year,
+            'years': years,
+            'selected_year': selected_year,
         })
 
 

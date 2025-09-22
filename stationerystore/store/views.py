@@ -700,6 +700,33 @@ class ReportViewSet(viewsets.ViewSet):
 
         return Response(formatted_data, status=status.HTTP_200_OK)
 
+    @action(methods=['get'], detail=False, url_path='order-percentage-by-status')
+    def get_order_percentage_by_status(self, request):
+        total_orders = Order.objects.count()
+        if total_orders == 0:
+            return Response({"detail": "No orders found"}, status=status.HTTP_404_NOT_FOUND)
+
+        status_counts = Order.objects.values('status').annotate(count=Count('id'))
+        status_percentage = {
+            entry['status']: (entry['count'] / total_orders) * 100 for entry in status_counts
+        }
+
+        status_percentage = {Order.Status(status).label: round(percentage, 2)
+                                for status, percentage in status_percentage.items()}
+
+        return Response(status_percentage, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='cancellation-rate')
+    def get_cancellation_rate(self, request):
+        total_orders = Order.objects.count()
+        if total_orders == 0:
+            return Response({"detail": "No orders found"}, status=status.HTTP_404_NOT_FOUND)
+
+        canceled_orders = Order.objects.filter(status=Order.Status.CANCELED).count()
+        cancellation_rate = (canceled_orders / total_orders) * 100
+
+        return Response({"cancellation_rate": cancellation_rate}, status=status.HTTP_200_OK)
+
     @action(methods=['get'], detail=False, url_path='top-products')
     def get_top_selling_products(self, request):
         # Lấy top 10 sản phẩm bán chạy nhất

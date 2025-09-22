@@ -1,8 +1,11 @@
 {% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ site_title|default:_('Django site admin') }}{% endblock %}
 
 {% block branding %}
-  {{ block.super }}
-  <a href="{% url 'store_admin:store-stats' %}" class="btn btn-success">
-      📊 Thống kê cửa hàng
-  </a>
+  <h1 id="site-name">
+    <a href="{% url 'myadmin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+  </h1>
+
 {% endblock %}
