@@ -90,7 +90,7 @@ const OrderDetail = () => {
         </div>
 
         {/* Hàng 2: Ngày đặt và ngày cập nhật */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-start gap-4 text-gray-500 text-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-start gap-8 text-gray-500 text-sm">
           <span>
             Ngày đặt:{" "}
             {new Date(order.created_date).toLocaleDateString("vi-VN", {
@@ -102,6 +102,7 @@ const OrderDetail = () => {
               second: "2-digit",
             })}
           </span>
+          <span className="mx-2">|</span>
           <span>
             {order.status === "CANCELED" ? "Đã huỷ:" : "Cập nhật:"}{" "}
             {new Date(order.updated_date).toLocaleDateString("vi-VN", {
@@ -116,8 +117,8 @@ const OrderDetail = () => {
         </div>
 
         {/* Hàng 3: Chú thích huỷ đơn */}
-        <div className="text-gray-600 text-sm">
-          Chỉ được huỷ đơn hàng khi chưa thanh toán
+        <div className="text-gray-600 text-sm italic">
+          Lưu ý: Bạn chỉ có thể huỷ đơn hàng khi chưa thanh toán
         </div>
       </div>
 

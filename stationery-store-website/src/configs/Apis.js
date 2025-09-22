@@ -2,7 +2,7 @@ import axios from "axios";
 import cookie from 'react-cookies'
 
 
-const BASE_URL = "http://192.168.1.6:8000/";
+const BASE_URL = "http://192.168.1.8:8000/";
 
 export const endpoint = {
     "send_otp": "/verified/send-otp/",
@@ -78,6 +78,8 @@ export const endpoint = {
     'revenue_by_year': '/report/revenue-by-year/',
     'revenue_by_quarter': '/report/revenue-by-quarter/',
     'revenue_month_present': '/report/revenue-month-present/',
+    'order-percentage-by-status': '/report/order-percentage-by-status/',
+    'cancellation-rate': '/report/cancellation-rate/',
 
     // Thanh toán
     'create_payment': '/payments/',

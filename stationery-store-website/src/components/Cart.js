@@ -183,16 +183,31 @@ const Cart = () => {
     const totalAmount = total - discountByPoint - discountByVoucher;
 
     return (
-        <div className="bg-gray-50 min-h-screen p-6">
+        <div className="bg-gray-50 pb-6 pt-4">
             {dataLoading ? <LoadingSpinner content="Đang tải giỏ hàng..." /> : null}
 
             {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center mt-20">
-                    <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
-                    <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
-                    <p className="text-gray-500 mb-4">Hãy thêm sản phẩm vào giỏ để tiếp tục mua sắm</p>
-                    <Link to="/" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">Tiếp tục mua sắm</Link>
-                </div>
+                user ? (
+                    <>
+                        <div className="flex flex-col items-center justify-center text-center mt-5">
+                            <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
+                            <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
+                            <p className="text-gray-500 mb-4">Hãy thêm sản phẩm vào giỏ để tiếp tục mua sắm</p>
+                            <Link to="/" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">
+                                Tiếp tục mua sắm
+                            </Link>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col items-center justify-center text-center mt-5">
+                        <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
+                        <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
+                        <p className="text-gray-500 mb-4">Vui lòng đăng nhập để sử dụng chức năng giỏ hàng</p>
+                        <Link to="/login" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">
+                            Đăng nhập ngay
+                        </Link>
+                    </div>
+                )
             ) : (
                 <div className="max-w-6xl mx-auto space-y-8">
                     {/* Thông tin nhận hàng */}
@@ -278,7 +293,7 @@ const Cart = () => {
                                 onClick={handleConfirmOrder}
                                 className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white py-3 rounded-xl shadow-lg hover:scale-105 transition flex items-center justify-center gap-2"
                             >
-                                {loading? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                                {loading ? "Đang xử lý..." : "Xác nhận đặt hàng"}
                             </button>
                         </div>
                     </div>
