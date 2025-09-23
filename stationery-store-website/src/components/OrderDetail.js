@@ -299,7 +299,7 @@ const OrderDetail = () => {
         <div className="bg-red-50 p-4 rounded shadow space-y-2">
           <h3 className="font-semibold text-red-600">Lý do huỷ:</h3>
           <p className="text-gray-600">
-            {order.reason_cancel || "Không có lý do"}
+            {order.reson_cancel || "Không có lý do"}
           </p>
         </div>
       )}

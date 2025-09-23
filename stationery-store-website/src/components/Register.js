@@ -64,7 +64,12 @@ const Register = () => {
                 await Apis.post(endpoint['send_otp'], { email: user.email });
             } else setMessage("Đăng ký thất bại!");
         } catch (err) {
-            setMessage("Có lỗi xảy ra!");
+            console.error(err);
+            if (err.response && err.response.data) {
+                let errors = err.response.data;
+                if (errors.username) setMessage("Tên đăng nhập đã tồn tại!");
+                else if (errors.email) setMessage("Email đã được sử dụng!");
+            } else setMessage("Có lỗi xảy ra!");
         } finally {
             setLoading(false);
         }
