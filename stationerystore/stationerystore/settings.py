@@ -109,7 +109,7 @@ DATABASES = {
         'NAME': os.getenv("NAME"),       # storedb_tk5m
         'USER': os.getenv("USER"),       # storedb_tk5m_user
         'PASSWORD': os.getenv("PASSWORD"),
-        'HOST': os.getenv("HOST"),       # hostname trong ảnh
+        'HOST': os.getenv("DB_PORT"),       # hostname trong ảnh
         'PORT': os.getenv("PORT", "5432"),
     }
 }
