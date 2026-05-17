@@ -286,4 +286,4 @@ admin_site.register(Message)
 admin_site.register(LoyaltyPoint, LoyaltyPointAdmin)
 admin_site.register(LoyaltyPointHistory, LoyaltyPointHistoryAdmin)
 
-admin_site.register(AccessToken)
+# admin_site.register(AccessToken)

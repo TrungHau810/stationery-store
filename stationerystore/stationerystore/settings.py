@@ -33,7 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-bp-q4io*s4#^i+vtir#4$rw__%7-_va3)_epf1gx92afe%r%1d'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
@@ -105,13 +105,26 @@ WSGI_APPLICATION = 'stationerystore.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv("NAME"),
-        'USER': os.getenv("USER"),
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv("NAME"),       # storedb_tk5m
+        'USER': os.getenv("USER"),       # storedb_tk5m_user
         'PASSWORD': os.getenv("PASSWORD"),
-        'HOST': ''  # mặc định localhost
+        'HOST': os.getenv("HOST"),       # hostname trong ảnh
+        'PORT': os.getenv("PORT", "5432"),
     }
 }
+import dj_database_url
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': os.getenv("NAME"),
+#         'USER': os.getenv("USER"),
+#         'PASSWORD': os.getenv("PASSWORD"),
+#         'HOST': ''  # mặc định localhost
+#     }
+# }
+
 
 import pymysql
 
@@ -173,7 +186,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
