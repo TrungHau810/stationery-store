@@ -69,10 +69,10 @@ OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSON
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     "django.middleware.common.CommonMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -86,7 +86,7 @@ ROOT_URLCONF = 'stationerystore.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [ BASE_DIR /'store' / 'templates'],
+        'DIRS': [BASE_DIR / 'store' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -106,11 +106,11 @@ WSGI_APPLICATION = 'stationerystore.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("NAME"),       # storedb_tk5m
-        'USER': os.getenv("USER"),       # storedb_tk5m_user
+        'NAME': os.getenv("NAME"),  # storedb_tk5m
+        'USER': os.getenv("USER"),  # storedb_tk5m_user
         'PASSWORD': os.getenv("PASSWORD"),
-        'HOST': os.getenv("DB_PORT"),       # hostname trong ảnh
-        'PORT': os.getenv("PORT", "5432"),
+        'HOST': os.getenv("HOST"),  # hostname trong ảnh
+        'PORT': os.getenv("DB_PORT", "5432"),
     }
 }
 import dj_database_url
@@ -188,6 +188,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
