@@ -2,7 +2,7 @@ import { useState } from "react";
 import { HiOutlineStar, HiStar, HiX } from "react-icons/hi";
 import { formatRelativeTime } from "../../../utils/FormatDateTime";
 import { roleLabels } from "../../Profile";
-import Apis, { authApis, endpoint } from "../../../configs/Apis";
+import { authApis, endpoint } from "../../../configs/Apis";
 import Swal from "sweetalert2";
 
 const ReviewCard = ({ review, user, reloadReviews, onImageClick }) => {

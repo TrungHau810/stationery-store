@@ -60,11 +60,15 @@ const LoyaltyPoint = () => {
       fetchLoyaltyPoints();
       fetchLoyaltyPointHistory(1);
     }
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Khi filterType thay đổi, reset page về 1
   useEffect(() => {
     if (user) fetchLoyaltyPointHistory(1, filterType);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, user]);
 
   // Chuẩn bị dữ liệu cho biểu đồ

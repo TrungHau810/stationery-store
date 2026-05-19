@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { authApis, endpoint } from "../configs/Apis";
 
 const Payment = () => {
   const location = useLocation();
-  const nav = useNavigate();
   const { orderId, paymentMethod } = location.state || {};
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -39,6 +38,7 @@ const Payment = () => {
 
   useEffect(() => {
     createPayment();
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

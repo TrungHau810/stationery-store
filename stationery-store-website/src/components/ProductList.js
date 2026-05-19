@@ -56,6 +56,7 @@ const ProductList = () => {
     useEffect(() => {
         fetchCategories();
         fetchProducts();
+         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [keyword, priceMin, priceMax, categoryId, page]);
 
     const handleFilter = (e) => {

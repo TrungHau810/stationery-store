@@ -10,9 +10,10 @@ const MyUserReducer = (current, action) => {
         case 'logout':
             cookie.remove('token');
             return null;
-    }
 
-    return current;
+        default:
+            return current;
+    }
 }
 
 export default MyUserReducer;

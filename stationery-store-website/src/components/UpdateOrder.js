@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { authApis, endpoint } from "../configs/Apis";
 import { useEffect, useState } from "react";
 import { statusMap } from "./Purchase";
@@ -64,6 +64,7 @@ const UpdateOrder = () => {
 
     useEffect(() => {
         fetchOrderDetails();
+         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     if (fetching) {
@@ -214,14 +215,5 @@ const UpdateOrder = () => {
         </div>
     );
 };
-
-// Component InfoRow tái sử dụng
-const InfoRow = ({ icon, label, value }) => (
-    <div className="flex items-center gap-2">
-        {icon}
-        <span className="font-medium">{label}:</span>
-        <span className="text-gray-700">{value}</span>
-    </div>
-);
 
 export default UpdateOrder;

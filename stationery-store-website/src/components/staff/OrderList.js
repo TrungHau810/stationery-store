@@ -33,6 +33,7 @@ const OrderList = () => {
 
     useEffect(() => {
         fetchAllOrders(filterStatus, 1);
+         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filterStatus]);
 
     const totalPages = Math.ceil(count / pageSize);

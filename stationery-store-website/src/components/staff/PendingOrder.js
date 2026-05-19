@@ -30,6 +30,7 @@ const PendingOrder = () => {
 
     useEffect(() => {
         fetchPendingOrders(1);
+         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const totalPages = Math.ceil(count / pageSize);

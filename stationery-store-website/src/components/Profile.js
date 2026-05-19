@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from "react";
 import { MyUserContext } from "../configs/Contexts";
-import { FaEdit, FaSave, FaTimes } from "react-icons/fa";
+import { FaEdit, FaSave } from "react-icons/fa";
 import { authApis, endpoint } from "../configs/Apis";
 import Swal from "sweetalert2";
 import ChangePassword from "./ChangePassword";

@@ -138,6 +138,7 @@ const Cart = () => {
             setReceiverPhone(user.number_phone || "");
             setAddress(user.address || "");
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     useEffect(() => {
@@ -190,7 +191,7 @@ const Cart = () => {
                 user ? (
                     <>
                         <div className="flex flex-col items-center justify-center text-center mt-5">
-                            <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
+                            <img src="/empty-cart.png" alt="Ảnh giỏ hàng trống" className="w-48 h-48 mb-6 opacity-80" />
                             <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
                             <p className="text-gray-500 mb-4">Hãy thêm sản phẩm vào giỏ để tiếp tục mua sắm</p>
                             <Link to="/" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">
@@ -200,7 +201,7 @@ const Cart = () => {
                     </>
                 ) : (
                     <div className="flex flex-col items-center justify-center text-center mt-5">
-                        <img src="/empty-cart.png" className="w-48 h-48 mb-6 opacity-80" />
+                        <img src="/empty-cart.png" alt="Ảnh giỏ hàng trống" className="w-48 h-48 mb-6 opacity-80" />
                         <h2 className="text-2xl font-semibold text-gray-700 mb-2">Giỏ hàng trống</h2>
                         <p className="text-gray-500 mb-4">Vui lòng đăng nhập để sử dụng chức năng giỏ hàng</p>
                         <Link to="/login" className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:scale-105 transition">
@@ -226,7 +227,7 @@ const Cart = () => {
                         {cart.map(item => (
                             <div key={item.id} className="flex flex-col sm:flex-row items-center gap-4 border-b pb-4">
                                 <div className="relative w-28 h-28">
-                                    <img src={item.product.image} className="w-full h-full object-cover rounded-lg" />
+                                    <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover rounded-lg" />
                                     {appliedVoucher && item.product.discount?.some(d => d.id === appliedVoucher.id) && (
                                         <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg">-{appliedVoucher.discount}%</span>
                                     )}

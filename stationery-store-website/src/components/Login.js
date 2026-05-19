@@ -11,13 +11,12 @@ import Apis, { authApis, endpoint } from "../configs/Apis";
 import cookie from "react-cookies";
 import Swal from "sweetalert2";
 import { GoogleLogin } from "@react-oauth/google";
-import { jwtDecode } from "jwt-decode";
 
 const Login = () => {
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState({});
     const [, dispatch] = useContext(MyUserContext);
-    const [cart, dispatchCart] = useContext(MyCartContext);
+    const [, dispatchCart] = useContext(MyCartContext);
     const [message, setMessage] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
     const nav = useNavigate();

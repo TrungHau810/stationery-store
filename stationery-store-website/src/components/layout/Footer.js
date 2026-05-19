@@ -13,9 +13,9 @@ const Footer = () => {
                             Sản phẩm tốt nhất, giá cả hợp lý.
                         </p>
                         <div className="flex space-x-4 mt-2">
-                            <a href="#" className="hover:text-white transition-colors duration-300"><FaFacebookF /></a>
-                            <a href="#" className="hover:text-white transition-colors duration-300"><FaInstagram /></a>
-                            <a href="#" className="hover:text-white transition-colors duration-300"><FaTwitter /></a>
+                            <a href="/" className="hover:text-white transition-colors duration-300"><FaFacebookF /></a>
+                            <a href="/" className="hover:text-white transition-colors duration-300"><FaInstagram /></a>
+                            <a href="/" className="hover:text-white transition-colors duration-300"><FaTwitter /></a>
                         </div>
                     </div>
 
