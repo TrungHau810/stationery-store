@@ -446,16 +446,21 @@ class OrderViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
         return Response({"detail": f'Đơn hàng #{order.pk} huỷ thành công'}, status=status.HTTP_200_OK)
 
 
-class DiscountViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
-    queryset = Discount.objects.filter(end_date__gte=timezone.now())
+class DiscountViewSet(viewsets.ViewSet,
+                      generics.ListAPIView,
+                      generics.RetrieveAPIView):
     serializer_class = serializers.DiscountSerializer
 
     def get_queryset(self):
-        query = self.queryset
-        if self.action.__eq__("list"):
+        query = Discount.objects.filter(
+            end_date__gte=timezone.now()
+        )
+
+        if self.action == "list":
             code = self.request.query_params.get("code")
             if code:
                 query = query.filter(code__icontains=code)
+
         return query
 
 
@@ -712,7 +717,7 @@ class ReportViewSet(viewsets.ViewSet):
         }
 
         status_percentage = {Order.Status(status).label: round(percentage, 2)
-                                for status, percentage in status_percentage.items()}
+                             for status, percentage in status_percentage.items()}
 
         return Response(status_percentage, status=status.HTTP_200_OK)
 

@@ -302,8 +302,9 @@ class OrderSerializer(ModelSerializer):
                     type=LoyaltyPointHistory.Type.REDEEM,
                     order=order
                 )
-        if order.payment_method == Order.PaymentMethod.CASH:
-            send_order_success_email(order=order)
+        # Tạm ngưng gửi mail
+        # if order.payment_method == Order.PaymentMethod.CASH:
+        #     send_order_success_email(order=order)
         return order
 
 
