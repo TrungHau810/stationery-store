@@ -14,24 +14,31 @@ const ProductInfo = ({ product, addToCart }) => {
     const productImages = [product.image, ...(product.images || []).map(img => img.link)].filter(Boolean);
     const displayImages = productImages.length > 0 ? productImages : ["/default-product.png"];
 
-    return (
-        <>
-            <CarouselImage
-                displayImages={displayImages}
-                product={product}
-            />
-            <div>
-                <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+    return (<>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-                {/* Rating */}
-                <div className="flex items-center gap-2 mb-3">
+            {/* IMAGE */}
+            <div className="rounded-xl overflow-hidden bg-gray-50">
+                <CarouselImage
+                    displayImages={displayImages}
+                    product={product}
+                />
+            </div>
+
+            {/* INFO */}
+            <div className="space-y-4">
+
+                {/* NAME */}
+                <h1 className="text-3xl font-bold text-gray-900">
+                    {product.name}
+                </h1>
+
+                {/* STARS */}
+                <div className="flex items-center gap-2">
                     <div className="text-yellow-400 text-lg">
                         {Array.from({ length: 5 }, (_, i) => (
-                            <span
-                                key={i}
-                                className={i < Math.round(product.average_rating) ? "text-yellow-400" : "text-gray-300"}
-                            >
-                                ★
+                            <span key={i}>
+                                {i < Math.round(product.average_rating) ? "★" : "☆"}
                             </span>
                         ))}
                     </div>
@@ -40,96 +47,116 @@ const ProductInfo = ({ product, addToCart }) => {
                     </span>
                 </div>
 
-                {/* Thương hiệu + tình trạng */}
-                <p className="text-gray-600 mb-2">
-                    Thương hiệu:{" "}
-                    <span className="text-blue-600">{product.brand.name}</span> |{" "}
-                    <span className={`ml-1 font-semibold ${product.quantity > 0 ? "text-green-600" : "text-red-500"}`}>
+                {/* BRAND + STOCK */}
+                <div className="flex items-center justify-between text-sm">
+                    <p className="text-gray-600">
+                        Thương hiệu:{" "}
+                        <span className="font-semibold text-blue-600">
+                            {product.brand?.name}
+                        </span>
+                    </p>
+
+                    <span className={`font-semibold ${product.quantity > 0 ? "text-green-600" : "text-red-500"
+                        }`}>
                         {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
                     </span>
-                </p>
-                <p className="font-semibold ml-1">Còn lại {product.quantity} sản phẩm</p>
-                <p className="text-sm text-gray-500 mb-4">Mã sản phẩm: {product.id}</p>
-
-                {/* Giá */}
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="text-3xl font-bold text-blue-600">
-                        {Number(product.price).toLocaleString("vi-VN")}₫
-                    </span>
-                    {/* Tăng 20% so giá thực tế */}
-                    <span className="line-through text-gray-400">
-                        {(Number(product.price) * 1.2).toLocaleString("vi-VN")}₫
-                    </span>
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
-                        -20%
-                    </span>
                 </div>
+
+                <p className="text-sm text-gray-500">
+                    Còn lại: {product.quantity} sản phẩm • SKU: {product.id}
+                </p>
+
+                {/* PRICE CARD */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <div className="flex items-end gap-3">
+                        <span className="text-3xl font-bold text-blue-600">
+                            {Number(product.price).toLocaleString("vi-VN")}₫
+                        </span>
+
+                        <span className="line-through text-gray-400">
+                            {(Number(product.price) * 1.2).toLocaleString("vi-VN")}₫
+                        </span>
+
+                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
+                            -20%
+                        </span>
+                    </div>
+                </div>
+
+                {/* QUANTITY */}
                 {!user || user.role === "customer" ? (
                     <>
-                        <div className="mb-4">
-                            <span className="font-semibold">Số lượng:</span>
-                            <div className="flex items-center mt-2 border rounded w-32">
+                        <div>
+                            <p className="font-medium mb-2">Số lượng</p>
+                            <div className="flex items-center border rounded-lg w-36 overflow-hidden">
                                 <button
                                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                    className="px-3 py-1 border-r hover:bg-gray-100"
+                                    className="px-3 py-2 hover:bg-gray-100"
                                 >
                                     -
                                 </button>
-                                <span className="flex-1 text-center">{quantity}</span>
+
+                                <span className="flex-1 text-center">
+                                    {quantity}
+                                </span>
+
                                 <button
                                     onClick={() => setQuantity(quantity + 1)}
-                                    className="px-3 py-1 border-l hover:bg-gray-100"
+                                    className="px-3 py-2 hover:bg-gray-100"
                                 >
                                     +
                                 </button>
                             </div>
                         </div>
 
-                        {/* Nút hành động */}
-                        <div className="flex gap-3 mb-6">
-                            {product.quantity > 0 ? (
-                                <button
-                                    className="flex-1 border-2 border-blue-500 text-blue-500 py-3 rounded hover:bg-blue-50 transition"
-                                    onClick={() => addToCart({ user, product, quantity })}
-                                >
-                                    Thêm vào giỏ
-                                </button>
-                            ) : (
-                                <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
-                                    Hết hàng
-                                </button>
-                            )}
-                            {product.quantity > 0 ? (
-                                <button className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded hover:from-blue-600 hover:to-blue-700 transition transform active:scale-95"
-                                    onClick={async () => {
-                                        const success = await addToCart({ user, product, quantity: 1 });
-                                        if (success) {
-                                            nav("/cart");
-                                        }
-                                    }}>
-                                    Mua ngay
-                                </button>
-                            ) : (
-                                <button className="flex-1 bg-gray-500 text-white py-3 rounded cursor-not-allowed" disabled>
-                                    Không thể mua
-                                </button>
-                            )}
+                        {/* CTA BUTTONS */}
+                        <div className="space-y-3 pt-2">
+
+                            <button
+                                disabled={product.quantity <= 0}
+                                onClick={() => addToCart({ user, product, quantity })}
+                                className="w-full py-3 rounded-xl border-2 border-blue-500 text-blue-600 hover:bg-blue-50 transition"
+                            >
+                                Thêm vào giỏ hàng
+                            </button>
+
+                            <button
+                                disabled={product.quantity <= 0}
+                                onClick={async () => {
+                                    const success = await addToCart({
+                                        user,
+                                        product,
+                                        quantity: 1
+                                    });
+                                    if (success) nav("/cart");
+                                }}
+                                className="w-full py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition"
+                            >
+                                Mua ngay
+                            </button>
+
                         </div>
                     </>
                 ) : null}
 
-                {/* Mô tả */}
+                {/* DESCRIPTION */}
                 {product.description && (
-                    <div className="mt-6 bg-gray-50 p-4 rounded border">
-                        <h2 className="text-xl font-semibold mb-2">Mô tả sản phẩm</h2>
+                    <div className="bg-gray-50 border rounded-xl p-4 mt-6">
+                        <h3 className="font-semibold mb-2">
+                            Mô tả sản phẩm
+                        </h3>
                         <div
-                            className="text-gray-700 text-sm leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: product.description }}
+                            className="text-sm text-gray-700 leading-relaxed"
+                            dangerouslySetInnerHTML={{
+                                __html: product.description
+                            }}
                         />
                     </div>
                 )}
             </div>
-        </>
+        </div>
+
+    </>
     );
 }
 

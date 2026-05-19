@@ -69,7 +69,7 @@ const Purchase = () => {
             {!user ? (
                 <div className="flex flex-col items-center justify-center bg-gray-100 p-6">
                     <div className="bg-white p-8 rounded-lg shadow-md text-center">
-                        <h1 className="text-2xl font-semibold mb-4">Vui lòng đăng nhập</h1>
+                        <h1 className="text-2xl font-bold mb-3">Vui lòng đăng nhập</h1>
                         <p className="mb-6 text-gray-600">
                             Bạn cần đăng nhập để tiếp tục sử dụng tính năng này.
                         </p>

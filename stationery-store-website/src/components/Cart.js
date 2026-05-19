@@ -174,7 +174,10 @@ const Cart = () => {
             }
         } catch (err) {
             console.error(err);
-            Swal.fire({ icon: "error", title: "Lỗi đặt hàng" });
+            Swal.fire({ 
+                icon: "error", 
+                title: "Lỗi đặt hàng", 
+                text: err.response.data[0] });
         } finally {
             setLoading(false);
         }

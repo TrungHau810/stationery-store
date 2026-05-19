@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { authApis, endpoint } from "../configs/Apis";
+import Apis, { endpoint } from "../configs/Apis";
 import { LoadingSpinner } from "./layout/LoadingSpinner";
 import { AiOutlineTag } from "react-icons/ai";
+import { FiCopy } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 const VoucherList = () => {
@@ -12,7 +13,7 @@ const VoucherList = () => {
   const fetchVouchers = async () => {
     try {
       setLoading(true);
-      const res = await authApis().get(endpoint["discount"]);
+      const res = await Apis.get(endpoint["discount"]);
       setVouchers(res.data);
     } catch (err) {
       console.error("Lỗi load vouchers:", err);
@@ -26,82 +27,112 @@ const VoucherList = () => {
     fetchVouchers();
   }, []);
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString("vi-VN");
+
+  const getStatus = (v) => {
+    const now = new Date();
+    if (now < new Date(v.start_date)) return "coming";
+    if (now > new Date(v.end_date)) return "expired";
+    return "active";
   };
 
-  const isExpired = (endDate) => new Date(endDate) < new Date();
+  const copyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    alert(`Đã sao chép mã: ${code}`);
+  };
+
+  const statusStyle = {
+    active: "bg-green-100 text-green-700",
+    expired: "bg-red-100 text-red-600",
+    coming: "bg-yellow-100 text-yellow-700",
+  };
+
+  const statusText = {
+    active: "Đang áp dụng",
+    expired: "Hết hạn",
+    coming: "Sắp áp dụng",
+  };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">
-        Các mã giảm giá
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+
+      <h2 className="text-2xl font-bold text-center text-gray-800">
+        Mã giảm giá
       </h2>
 
       {loading ? (
         <LoadingSpinner content="Đang tải voucher..." />
       ) : vouchers.length === 0 ? (
-        <div className="text-gray-500 text-center py-12">
-          <p className="text-lg">Hiện chưa có voucher nào</p>
+        <div className="text-center text-gray-500 py-12">
+          Không có voucher nào
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
+
           {vouchers.map((v) => {
-            const expired = isExpired(v.end_date);
+            const status = getStatus(v);
 
             return (
               <div
                 key={v.id}
-                className="relative bg-white p-5 rounded-2xl shadow-md border border-dashed border-blue-400 hover:shadow-lg transition"
+                className="relative bg-white border border-dashed border-blue-400 rounded-2xl p-5 shadow-sm hover:shadow-lg transition"
               >
-                {/* Icon */}
-                <div className="absolute -top-4 -left-4 bg-blue-500 text-white p-2 rounded-full shadow-md">
-                  <AiOutlineTag size={20} />
+
+                {/* ICON */}
+                <div className="absolute -top-4 -left-4 bg-blue-500 text-white p-2 rounded-full shadow">
+                  <AiOutlineTag size={18} />
                 </div>
 
-                {/* Header */}
+                {/* HEADER */}
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-bold text-gray-800">
-                    {v.code}
-                  </h3>
-                  <span className="text-green-600 font-semibold text-xl">
+
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-gray-800">
+                      {v.code}
+                    </h3>
+
+                    <button
+                      onClick={() => copyCode(v.code)}
+                      className="text-gray-400 hover:text-blue-600"
+                    >
+                      <FiCopy />
+                    </button>
+                  </div>
+
+                  <span className="text-xl font-bold text-red-500">
                     -{v.discount}%
                   </span>
+
                 </div>
 
-                {/* Dates */}
-                <p className="text-gray-500 text-sm mb-2">
+                {/* DATE */}
+                <p className="text-sm text-gray-500 mb-2">
                   {formatDate(v.start_date)} → {formatDate(v.end_date)}
                 </p>
 
-                {/* Trạng thái */}
+                {/* STATUS */}
                 <span
-                  className={`inline-block text-xs font-medium px-3 py-1 rounded-full mb-3 ${expired
-                    ? "bg-red-100 text-red-600"
-                    : "bg-green-100 text-green-600"
-                    }`}
+                  className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${statusStyle[status]}`}
                 >
-                  {expired ? "Hết hạn" : "Còn hiệu lực"}
+                  {statusText[status]}
                 </span>
 
-                {/* Action */}
+                {/* ACTION */}
                 <button
-                  className="w-full mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-                  onClick={() => {
-                    nav(`/vouchers/${v.id}`);
-                  }}
+                  onClick={() => nav(`/vouchers/${v.id}`)}
+                  className="w-full mt-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   Xem chi tiết
                 </button>
+
               </div>
             );
           })}
+
         </div>
       )}
+
     </div>
   );
 };

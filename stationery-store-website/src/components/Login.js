@@ -32,9 +32,8 @@ const Login = () => {
             setLoading(true);
             const response = await Apis.post(endpoint["login"], {
                 ...user,
-                client_id: "H9NEh1H8FbCa6g7LaUbQJwUJHrGx5mqkMbJB7wW7",
-                client_secret:
-                    "MLXdmCFbDWcf8d4i3uRheC6IUeJjPeFcjC59ztuLMDllTjbEiQl9gPbwt8dnZiOThix2AtlvbOHaEzsHDZG3WvkKZlxbHlTMv8QuLcBJS2VRzE4933FObB59zP4FBswD",
+                client_id: process.env.REACT_APP_CLIENT_ID,
+                client_secret: process.env.REACT_APP_CLIENT_SECRET,
                 grant_type: "password",
             });
 

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { FiTag } from "react-icons/fi";
 import Apis, { endpoint } from "../configs/Apis";
 import DiscountCard from "./layout/DiscountCard";
 import { addToCart } from "../utils/Cart";
@@ -52,77 +53,95 @@ const ProductDetail = () => {
 
     useEffect(() => {
         if (id) fetchData();
-         // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     return (
-        <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Product Info */}
-            {loading ? (
-                <div className="flex justify-center items-center py-20 col-span-2">
-                    <div className="w-10 h-10 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
-                    <span className="ml-3 text-gray-600">Đang tải sản phẩm...</span>
-                </div>
-            ) : (
-                <ProductInfo product={product} addToCart={addToCart} />
-            )}
+        <>
+            <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="lg:col-span-8">
+                    <div className="w-full bg-white rounded-2xl shadow-sm p-6 space-y-6">
 
-            {/* Discounts */}
-            {!user || user.role === "customer" ? (
-                loading ? null : (
-                    <div className="bg-gray-50 border p-4 rounded mb-6 col-span-2 md:col-span-1">
-                        <p className="font-semibold mb-2">Mã giảm giá</p>
-                        {discounts.length > 0 ? (
-                            discounts
-                                .filter((discount) => {
-                                    const now = new Date();
-                                    const start = new Date(discount.start_date);
-                                    const end = new Date(discount.end_date);
-                                    return now >= start && now <= end;
-                                })
-                                .map((discount) => (
-                                    <DiscountCard key={discount.id} discount={discount} />
-                                ))
+                        {loading ? (
+                            <div className="flex justify-center items-center py-20">
+                                <div className="w-10 h-10 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
+                                <span className="ml-3 text-gray-600">Đang tải sản phẩm...</span>
+                            </div>
                         ) : (
-                            <p className="text-gray-500">Không có mã giảm giá nào</p>
+                            <>
+                                <ProductInfo product={product} addToCart={addToCart} />
+
+                                {/* DISCOUNTS CENTER */}
+                                {!user || user.role === "customer" ? (
+                                    <div className="flex justify-center">
+                                        <div className="w-full max-w-md bg-gray-50 border rounded-xl p-4">
+
+                                            <div className="flex items-center justify-center gap-2 mb-3">
+                                                <FiTag className="text-blue-600" />
+                                                <h3 className="font-semibold text-gray-800">
+                                                    Mã giảm giá
+                                                </h3>
+                                            </div>
+
+                                            {discounts.length > 0 ? (
+                                                discounts
+                                                    .filter(d => {
+                                                        const now = new Date();
+                                                        return now >= new Date(d.start_date) && now <= new Date(d.end_date);
+                                                    })
+                                                    .map(d => (
+                                                        <DiscountCard key={d.id} discount={d} />
+                                                    ))
+                                            ) : (
+                                                <p className="text-sm text-gray-500 text-center">
+                                                    Không có mã giảm giá khả dụng
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                            </>
                         )}
+
                     </div>
-                )
-            ) : null}
+                </div>
 
-            {/* Reviews */}
-            <div className="col-span-2 mt-10">
-                <h2 className="text-2xl font-semibold mb-4">Đánh giá sản phẩm</h2>
+                {/* REVIEWS */}
+                <div className="mt-10 bg-white rounded-2xl shadow-sm p-6">
 
-                {user && user.role === "customer" ? (
-                    <AddReview
-                        user={user}
-                        productId={product.id}
-                        reloadReviews={fetchReviews}
+                    <h2 className="text-2xl font-bold mb-6">
+                        Đánh giá sản phẩm
+                    </h2>
+
+                    {user && user.role === "customer" ? (
+                        <AddReview
+                            user={user}
+                            productId={product.id}
+                            reloadReviews={fetchReviews}
+                        />
+                    ) : (
+                        <p className="text-gray-500 mb-4 text-sm">
+                            Vui lòng đăng nhập với tài khoản khách hàng để đánh giá.
+                        </p>
+                    )}
+
+                    <RatingSummary
+                        average={product.average_rating || 0}
+                        count={product.count_reviews || 0}
+                        breakdown={reviews[0]?.rating_breakdown || {}}
                     />
-                ) : !user ? (
-                    <p className="text-gray-500 mb-4">
-                        Vui lòng đăng nhập để thêm đánh giá.
-                    </p>
-                ) : (
-                    <p className="text-gray-500 mb-4">
-                        Chỉ khách hàng mới có thể thêm đánh giá.
-                    </p>
-                )}
 
-                <RatingSummary
-                    average={product.average_rating || 0}
-                    count={product.count_reviews || 0}
-                    breakdown={reviews[0]?.rating_breakdown || {}}
-                />
-
-                {loadingReviews ? (
-                    <p className="text-gray-500 text-center py-4">Đang tải đánh giá...</p>
-                ) : (
-                    <ReviewList reviews={reviews} reloadReviews={fetchReviews} />
-                )}
+                    {loadingReviews ? (
+                        <p className="text-center text-gray-500 py-4">
+                            Đang tải đánh giá...
+                        </p>
+                    ) : (
+                        <ReviewList reviews={reviews} reloadReviews={fetchReviews} />
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

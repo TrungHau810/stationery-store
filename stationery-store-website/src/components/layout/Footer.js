@@ -1,49 +1,118 @@
 import { FaFacebookF, FaInstagram, FaTwitter } from "react-icons/fa";
+import { FiMail, FiPhone, FiMapPin } from "react-icons/fi";
 
 const Footer = () => {
     return (
-        <footer className="text-white shadow-inner">
-            {/* Nội dung chính gradient */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-12">
-                <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
+        <footer className="text-white bg-blue-900">
+
+            {/* MAIN */}
+            <div className="px-6 py-14 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+
+                    {/* Brand */}
                     <div className="space-y-4">
-                        <h3 className="text-2xl font-extrabold tracking-wide mb-2">Open Stationery Store</h3>
+                        <h3 className="text-2xl font-bold tracking-wide">
+                            Open Stationery Store
+                        </h3>
+
                         <p className="text-sm text-blue-100 leading-relaxed">
-                            Chúng tôi mang đến văn phòng phẩm chất lượng cao, phục vụ học tập và công việc.
-                            Sản phẩm tốt nhất, giá cả hợp lý.
+                            Cung cấp văn phòng phẩm chất lượng cao cho học tập và công việc,
+                            tối ưu trải nghiệm mua sắm với giá cả hợp lý và dịch vụ nhanh chóng.
                         </p>
-                        <div className="flex space-x-4 mt-2">
-                            <a href="/" className="hover:text-white transition-colors duration-300"><FaFacebookF /></a>
-                            <a href="/" className="hover:text-white transition-colors duration-300"><FaInstagram /></a>
-                            <a href="/" className="hover:text-white transition-colors duration-300"><FaTwitter /></a>
+
+                        <div className="flex gap-4 pt-2">
+                            {[
+                                { icon: FaFacebookF, link: "#" },
+                                { icon: FaInstagram, link: "#" },
+                                { icon: FaTwitter, link: "#" },
+                            ].map((item, i) => {
+                                const Icon = item.icon;
+                                return (
+                                    <a
+                                        key={i}
+                                        href={item.link}
+                                        className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition transform hover:scale-110"
+                                    >
+                                        <Icon className="text-white text-sm" />
+                                    </a>
+                                );
+                            })}
                         </div>
                     </div>
 
+                    {/* Support */}
                     <div className="space-y-4">
-                        <h3 className="text-xl font-semibold mb-2">Hỗ trợ</h3>
-                        <ul className="space-y-2 text-sm text-blue-100">
-                            <li><a href="/about" className="hover:text-white transition-colors duration-300">Về chúng tôi</a></li>
-                            <li><a href="/faq" className="hover:text-white transition-colors duration-300">Câu hỏi thường gặp</a></li>
-                            <li><a href="/policy" className="hover:text-white transition-colors duration-300">Chính sách bảo mật</a></li>
-                            <li><a href="/terms" className="hover:text-white transition-colors duration-300">Điều khoản sử dụng</a></li>
+                        <h3 className="text-lg font-semibold border-b border-white/20 pb-2">
+                            Hỗ trợ
+                        </h3>
+
+                        <ul className="space-y-3 text-sm text-blue-100">
+                            {[
+                                { label: "Về chúng tôi", link: "/about" },
+                                { label: "Câu hỏi thường gặp", link: "/faq" },
+                                { label: "Chính sách bảo mật", link: "/policy" },
+                                { label: "Điều khoản sử dụng", link: "/terms" },
+                            ].map((item, i) => (
+                                <li key={i}>
+                                    <a
+                                        href={item.link}
+                                        className="hover:text-white transition flex items-center gap-2"
+                                    >
+                                        <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
+                                        {item.label}
+                                    </a>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
+                    {/* Contact */}
                     <div className="space-y-4">
-                        <h3 className="text-xl font-semibold mb-2">Liên hệ</h3>
-                        <ul className="space-y-2 text-sm text-blue-100">
-                            <li>Email: <a href="mailto:tthau2004@gmail.com" className="hover:text-white transition-colors duration-300">tthau2004@gmail.com</a></li>
-                            <li>Điện thoại: <a href="tel:0123456789" className="hover:text-white transition-colors duration-300">0123 456 789</a></li>
-                            <li>Địa chỉ: 123 Đường ABC, Quận 1, TP.HCM</li>
+                        <h3 className="text-lg font-semibold border-b border-white/20 pb-2">
+                            Liên hệ
+                        </h3>
+
+                        <ul className="space-y-4 text-sm text-blue-100">
+                            <li className="flex items-center gap-3">
+                                <FiMail />
+                                <a href="mailto:tthau2004@gmail.com" className="hover:text-white">
+                                    tthau2004@gmail.com
+                                </a>
+                            </li>
+
+                            <li className="flex items-center gap-3">
+                                <FiPhone />
+                                <a href="tel:0123456789" className="hover:text-white">
+                                    0123 456 789
+                                </a>
+                            </li>
+
+                            <li className="flex items-start gap-3">
+                                <FiMapPin className="mt-1" />
+                                <span>123 Đường ABC, Quận 1, TP.HCM</span>
+                            </li>
                         </ul>
                     </div>
                 </div>
             </div>
 
-            {/* Bản quyền riêng */}
-            <div className="bg-blue-800 text-center py-4 text-sm text-white">
-                © {new Date().getFullYear()} Open Stationery Store. All rights reserved.
+            {/* BOTTOM BAR */}
+            <div className="border-t border-white/10 bg-blue-950">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center text-xs text-blue-200">
+
+                    <p>
+                        © {new Date().getFullYear()} Open Stationery Store. All rights reserved.
+                    </p>
+
+                    <div className="flex gap-4 mt-2 md:mt-0">
+                        <a href="/terms" className="hover:text-white">Terms</a>
+                        <a href="/policy" className="hover:text-white">Privacy</a>
+                        <a href="/support" className="hover:text-white">Support</a>
+                    </div>
+
+                </div>
             </div>
+
         </footer>
     );
 };

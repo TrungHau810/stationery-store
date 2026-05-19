@@ -32,6 +32,7 @@ import ResetPassword from './components/ResetPassword.js';
 import PaymentCallback from './components/PaymentResult.js';
 import AddProduct from './components/staff/AddProduct.js';
 import VoucherDetail from './components/VoucherDetail.js';
+import NotFound from './components/NotFound.js';
 
 function App() {
   const [user, dispatch] = useReducer(MyUserReducer, null);
@@ -101,6 +102,7 @@ function App() {
             {(user?.role === "staff" || user?.role === "manager") && (
               <Route path='/products/add' element={<AddProduct />} />
             )}
+            <Route path='*' element={<NotFound />} />
           </Routes>
           <Footer />
         </BrowserRouter>
