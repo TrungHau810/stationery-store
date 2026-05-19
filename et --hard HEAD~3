@@ -1,0 +1,34 @@
+[33m34fa734[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Delo vercel
+[33m4c541de[m update browserslist
+[33m61628ad[m Fix bugs deloy
+[33m578a1b4[m Update UI pages
+[33m2ce6b4e[m Fix bugs in settings.py
+[33m7c4dd03[m Fix port DB
+[33ma6957d1[m Fix deloy
+[33me64af19[m Fix
+[33m4b88f17[m Final commit
+[33m384987b[m Update interface
+[33mf83cad6[m Update stats in admin site, APIs
+[33m4409789[m Update frontend
+[33me711e88[m Update backend
+[33mfc4f77d[m Update frontend
+[33m1cee206[m Update backend
+[33m9f45619[m Update report API
+[33ma8dc74a[m Update cart, profile, header, cart, reviews of product UI
+[33mfced7e9[m Update models, add OTP authenticate APIs
+[33mdc94eb9[m Add new front-end project with tailwind CSS framework
+[33mf013095[m Remove __pycache__ folder
+[33m59b2580[m Update models: LoyaltyPoint, LoyaltyPointHistory, update order API, admin site
+[33m20e80e2[m Add loyalty points feature with chart visualization and update profile links
+[33mf4a84fa[m Move React frontend into repo (fix submodule issue)
+[33mf293a27[m Create react front-end project
+[33m8ef3eab[m Update models, cancel order API, admin site
+[33m645b891[m Update models, viewset, admin-site and payment API
+[33m587d609[m Stop tracking .env file
+[33mafb3d22[m Update admin site, create order API and add store-stats in admin site
+[33mddb6eb9[m Update .gitignore file
+[33m61d6971[m Update admin site, add permissions, add OAuth2 token API, authenticated user info API and update product API
+[33m2ecf56f[m Add multiple relationships to models
+[33m9bb7281[m Resolve merge conflict in .gitignore
+[33m6ab29a3[m Add initial models to project
+[33m6be8cd2[m Initial commit
