@@ -42,6 +42,7 @@ const Header = () => {
             nav(`/products?keyword=${keyword}`);
             setKeyword("");
             setShowSearch(false);
+            setShowMenu(false);
         }
     };
 
@@ -122,258 +123,397 @@ const Header = () => {
         },
     ];
 
-    const menus = !user || role === "customer"
-        ? customerMenus
-        : role === "staff"
-            ? staffMenus
-            : managerMenus;
+    const menus =
+        !user || role === "customer"
+            ? customerMenus
+            : role === "staff"
+                ? staffMenus
+                : managerMenus;
 
     return (
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+        <>
+            <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
 
-            {/* TOP BAR */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* TOP BAR */}
+                <div className="max-w-7xl mx-auto px-4">
 
-                <div className="flex items-center justify-between gap-4 py-4">
+                    <div className="h-16 flex items-center justify-between">
 
-                    {/* LOGO */}
-                    <button
-                        className="
-                            flex items-center
-                            text-2xl font-black
-                            tracking-tight
-                            bg-gradient-to-r from-blue-600 to-indigo-600
-                            bg-clip-text text-transparent
-                            hover:opacity-80
-                            transition
-                            whitespace-nowrap
-                        "
-                        onClick={() => {
-                            role === "customer" || role === undefined
-                                ? nav("/")
-                                : role === "staff"
-                                    ? nav("/staff/home")
-                                    : nav("/manager/home");
-                        }}
-                    >
-                        Open Stationery
-                    </button>
+                        {/* LEFT */}
+                        <div className="flex items-center gap-2">
 
-                    {/* SEARCH DESKTOP */}
-                    <div className="hidden md:flex flex-1 justify-center px-4">
-
-                        <div className="relative w-full max-w-2xl">
-
-                            <input
-                                type="text"
-                                value={keyword}
-                                onChange={(e) => setKeyword(e.target.value)}
-                                onKeyDown={(e) =>
-                                    e.key === "Enter" && handleSearch()
-                                }
-                                placeholder="Tìm kiếm sản phẩm..."
-                                className="
-                                    w-full h-12
-                                    rounded-2xl
-                                    border border-slate-200
-                                    bg-slate-50
-                                    pl-5 pr-14
-                                    text-sm
-                                    shadow-sm
-                                    transition-all duration-200
-                                    focus:outline-none
-                                    focus:ring-4 focus:ring-blue-100
-                                    focus:border-blue-400
-                                    focus:bg-white
-                                "
-                            />
-
+                            {/* MOBILE MENU */}
                             <button
-                                onClick={handleSearch}
                                 className="
-                                    absolute right-2 top-1/2 -translate-y-1/2
-                                    w-9 h-9
+                                    md:hidden
+                                    w-10 h-10
                                     rounded-xl
-                                    bg-blue-600 text-white
                                     flex items-center justify-center
-                                    hover:bg-blue-700
+                                    hover:bg-slate-100
                                     transition
                                 "
+                                onClick={() => setShowMenu(true)}
                             >
-                                <MagnifyingGlassIcon className="h-5 w-5" />
+                                <Bars3Icon className="h-6 w-6 text-slate-700" />
+                            </button>
+
+                            {/* LOGO */}
+                            <button
+                                className="
+                                    text-lg md:text-2xl
+                                    font-black
+                                    tracking-tight
+                                    bg-gradient-to-r from-blue-600 to-indigo-600
+                                    bg-clip-text text-transparent
+                                    whitespace-nowrap
+                                "
+                                onClick={() => {
+                                    role === "customer" || role === undefined
+                                        ? nav("/")
+                                        : role === "staff"
+                                            ? nav("/staff/home")
+                                            : nav("/manager/home");
+                                }}
+                            >
+                                Open Stationery
                             </button>
                         </div>
-                    </div>
 
-                    {/* ACTIONS */}
-                    <div className="flex items-center gap-2">
+                        {/* SEARCH DESKTOP */}
+                        <div className="hidden md:flex flex-1 justify-center px-4">
 
-                        {/* MOBILE SEARCH */}
-                        <button
-                            className="
-                                md:hidden
-                                w-10 h-10
-                                rounded-xl
-                                flex items-center justify-center
-                                hover:bg-slate-100
-                                transition
-                            "
-                            onClick={() => setShowSearch(!showSearch)}
-                        >
-                            <MagnifyingGlassIcon className="h-6 w-6 text-slate-700" />
-                        </button>
+                            <div className="relative w-full max-w-2xl">
 
-                        {/* USER */}
-                        {user ? (
-                            <>
-                                <button
+                                <input
+                                    type="text"
+                                    value={keyword}
+                                    onChange={(e) => setKeyword(e.target.value)}
+                                    onKeyDown={(e) =>
+                                        e.key === "Enter" && handleSearch()
+                                    }
+                                    placeholder="Tìm kiếm sản phẩm..."
                                     className="
-                                        flex items-center gap-3
-                                        px-3 py-2
+                                        w-full h-12
                                         rounded-2xl
-                                        hover:bg-slate-100
-                                        transition
+                                        border border-slate-200
+                                        bg-slate-50
+                                        pl-5 pr-14
+                                        text-sm
+                                        shadow-sm
+                                        transition-all duration-200
+                                        focus:outline-none
+                                        focus:ring-4 focus:ring-blue-100
+                                        focus:border-blue-400
+                                        focus:bg-white
                                     "
-                                    onClick={() => nav("/profile")}
-                                >
-                                    <img
-                                        src={
-                                            user.avatar ||
-                                            "https://cdn-icons-png.flaticon.com/512/149/149071.png"
-                                        }
-                                        alt={user.full_name}
-                                        className="
-                                            h-10 w-10
-                                            rounded-full
-                                            object-cover
-                                            border-2 border-white
-                                            shadow
-                                        "
-                                    />
-
-                                    <div className="hidden md:flex flex-col items-start">
-                                        <span className="text-sm font-semibold text-slate-700">
-                                            {user.full_name || "Người dùng"}
-                                        </span>
-
-                                        <span className="text-xs text-slate-400 capitalize">
-                                            {role}
-                                        </span>
-                                    </div>
-                                </button>
+                                />
 
                                 <button
-                                    onClick={() => {
-                                        dispatch({ type: "logout" });
-                                        dispatchCart({ type: "clear" });
-                                        nav("/");
-                                    }}
+                                    onClick={handleSearch}
                                     className="
-                                        hidden md:block
-                                        px-4 py-2
-                                        rounded-xl
-                                        text-sm font-medium
-                                        text-slate-600
-                                        hover:bg-slate-100
-                                        hover:text-blue-600
-                                        transition
-                                    "
-                                >
-                                    Đăng xuất
-                                </button>
-                            </>
-                        ) : (
-                            <div className="hidden md:flex items-center gap-2">
-
-                                <button
-                                    onClick={() => nav("/login")}
-                                    className="
-                                        px-4 py-2
-                                        rounded-xl
-                                        text-sm font-medium
-                                        text-slate-600
-                                        hover:bg-slate-100
-                                        transition
-                                    "
-                                >
-                                    Đăng nhập
-                                </button>
-
-                                <button
-                                    onClick={() => nav("/register")}
-                                    className="
-                                        px-4 py-2
+                                        absolute right-2 top-1/2 -translate-y-1/2
+                                        w-9 h-9
                                         rounded-xl
                                         bg-blue-600 text-white
-                                        text-sm font-medium
+                                        flex items-center justify-center
                                         hover:bg-blue-700
                                         transition
                                     "
                                 >
-                                    Đăng ký
+                                    <MagnifyingGlassIcon className="h-5 w-5" />
                                 </button>
                             </div>
-                        )}
+                        </div>
 
-                        {/* CART */}
-                        {(!user || role === "customer") && (
+                        {/* RIGHT */}
+                        <div className="flex items-center gap-2">
+
+                            {/* MOBILE SEARCH */}
                             <button
                                 className="
-                                    relative
-                                    w-11 h-11
-                                    rounded-2xl
-                                    bg-slate-100
-                                    hover:bg-blue-50
-                                    hover:text-blue-600
+                                    md:hidden
+                                    w-10 h-10
+                                    rounded-xl
                                     flex items-center justify-center
+                                    hover:bg-slate-100
                                     transition
                                 "
-                                onClick={() => nav("/cart")}
+                                onClick={() => setShowSearch(true)}
                             >
-                                <ShoppingCartIcon className="h-6 w-6" />
+                                <MagnifyingGlassIcon className="h-5 w-5 text-slate-700" />
+                            </button>
 
-                                {cart > 0 && (
-                                    <span
+                            {/* USER DESKTOP */}
+                            {user ? (
+                                <>
+                                    <button
                                         className="
-                                            absolute -top-1 -right-1
-                                            min-w-[20px] h-5 px-1
-                                            rounded-full
-                                            bg-red-500 text-white
-                                            text-[11px] font-bold
-                                            flex items-center justify-center
-                                            shadow
+                                            hidden md:flex
+                                            items-center gap-3
+                                            px-3 py-2
+                                            rounded-2xl
+                                            hover:bg-slate-100
+                                            transition
+                                        "
+                                        onClick={() => nav("/profile")}
+                                    >
+                                        <img
+                                            src={
+                                                user.avatar ||
+                                                "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                                            }
+                                            alt={user.full_name}
+                                            className="
+                                                h-10 w-10
+                                                rounded-full
+                                                object-cover
+                                                border-2 border-white
+                                                shadow
+                                            "
+                                        />
+
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-sm font-semibold text-slate-700">
+                                                {user.full_name || "Người dùng"}
+                                            </span>
+
+                                            <span className="text-xs text-slate-400 capitalize">
+                                                {role}
+                                            </span>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            dispatch({ type: "logout" });
+                                            dispatchCart({ type: "clear" });
+                                            nav("/");
+                                        }}
+                                        className="
+                                            hidden md:block
+                                            px-4 py-2
+                                            rounded-xl
+                                            text-sm font-medium
+                                            text-slate-600
+                                            hover:bg-slate-100
+                                            hover:text-blue-600
+                                            transition
                                         "
                                     >
-                                        {cart}
-                                    </span>
-                                )}
-                            </button>
-                        )}
+                                        Đăng xuất
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="hidden md:flex items-center gap-2">
 
-                        {/* MOBILE MENU */}
-                        <button
-                            className="
-                                md:hidden
-                                w-10 h-10
-                                rounded-xl
-                                flex items-center justify-center
-                                hover:bg-slate-100
-                                transition
-                            "
-                            onClick={() => setShowMenu(true)}
-                        >
-                            <Bars3Icon className="h-6 w-6 text-slate-700" />
-                        </button>
+                                    <button
+                                        onClick={() => nav("/login")}
+                                        className="
+                                            px-4 py-2
+                                            rounded-xl
+                                            text-sm font-medium
+                                            text-slate-600
+                                            hover:bg-slate-100
+                                            transition
+                                        "
+                                    >
+                                        Đăng nhập
+                                    </button>
+
+                                    <button
+                                        onClick={() => nav("/register")}
+                                        className="
+                                            px-4 py-2
+                                            rounded-xl
+                                            bg-blue-600 text-white
+                                            text-sm font-medium
+                                            hover:bg-blue-700
+                                            transition
+                                        "
+                                    >
+                                        Đăng ký
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* CART */}
+                            {(!user || role === "customer") && (
+                                <button
+                                    className="
+                                        relative
+                                        w-10 h-10
+                                        rounded-xl
+                                        bg-slate-100
+                                        hover:bg-blue-50
+                                        hover:text-blue-600
+                                        flex items-center justify-center
+                                        transition
+                                    "
+                                    onClick={() => nav("/cart")}
+                                >
+                                    <ShoppingCartIcon className="h-5 w-5" />
+
+                                    {cart > 0 && (
+                                        <span
+                                            className="
+                                                absolute -top-1 -right-1
+                                                min-w-[18px]
+                                                h-[18px]
+                                                px-1
+                                                rounded-full
+                                                bg-red-500
+                                                text-white
+                                                text-[10px]
+                                                font-bold
+                                                flex items-center justify-center
+                                            "
+                                        >
+                                            {cart}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* MOBILE SEARCH */}
-                {showSearch && (
-                    <div className="pb-4 md:hidden">
+                {/* DESKTOP NAV */}
+                <nav className="hidden md:block bg-slate-50 border-t border-slate-100">
 
-                        <div className="relative">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                        <div className="flex items-center gap-3 py-3">
+
+                            {/* CATEGORY DROPDOWN */}
+                            <div className="relative group py-2">
+
+                                <button
+                                    className="
+                                        flex items-center gap-2
+                                        px-4 py-2.5
+                                        rounded-xl
+                                        bg-blue-600 text-white
+                                        shadow-sm
+                                        hover:bg-blue-700
+                                        transition-all
+                                    "
+                                >
+                                    <Bars3Icon className="h-5 w-5" />
+
+                                    <span className="text-sm font-semibold">
+                                        Danh mục sản phẩm
+                                    </span>
+                                </button>
+
+                                {/* DROPDOWN */}
+                                <div
+                                    className="
+                                        absolute left-0 top-full mt-1
+                                        w-72
+                                        bg-white
+                                        border border-slate-200
+                                        rounded-2xl
+                                        shadow-2xl
+                                        overflow-hidden
+                                        z-50
+
+                                        opacity-0 invisible
+                                        translate-y-2
+
+                                        group-hover:opacity-100
+                                        group-hover:visible
+                                        group-hover:translate-y-0
+
+                                        transition-all duration-200
+                                    "
+                                >
+                                    <ul className="py-2">
+
+                                        {categories.length > 0 ? (
+                                            categories.map((c) => (
+                                                <li
+                                                    key={c.id}
+                                                    onClick={() =>
+                                                        nav(`/products?category_id=${c.id}`)
+                                                    }
+                                                    className="
+                                                        flex items-center justify-between
+                                                        px-5 py-3
+                                                        cursor-pointer
+                                                        hover:bg-blue-50
+                                                        transition
+                                                    "
+                                                >
+                                                    <span className="text-sm font-medium text-slate-700">
+                                                        {c.name}
+                                                    </span>
+
+                                                    <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+                                                </li>
+                                            ))
+                                        ) : (
+                                            <li className="px-5 py-3 text-sm text-slate-500">
+                                                Không có danh mục
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* MENU ITEMS */}
+                            <div className="flex items-center gap-1">
+
+                                {menus.map((m, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => nav(m.path)}
+                                        className="
+                                            px-4 py-2.5
+                                            rounded-xl
+                                            text-sm font-medium
+                                            text-slate-600
+                                            hover:bg-white
+                                            hover:text-blue-600
+                                            hover:shadow-sm
+                                            transition-all
+                                        "
+                                    >
+                                        {m.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+
+            {/* MOBILE SEARCH OVERLAY */}
+            {showSearch && (
+                <div
+                    className="
+                        fixed inset-0 z-[60]
+                        bg-white
+                        md:hidden
+                    "
+                >
+                    <div className="flex items-center gap-3 p-4 border-b">
+
+                        <button
+                            onClick={() => setShowSearch(false)}
+                            className="
+                                w-10 h-10
+                                rounded-xl
+                                hover:bg-slate-100
+                                flex items-center justify-center
+                            "
+                        >
+                            <XMarkIcon className="h-6 w-6 text-slate-700" />
+                        </button>
+
+                        <div className="relative flex-1">
 
                             <input
+                                autoFocus
                                 type="text"
                                 value={keyword}
                                 onChange={(e) => setKeyword(e.target.value)}
@@ -383,138 +523,27 @@ const Header = () => {
                                 placeholder="Tìm kiếm sản phẩm..."
                                 className="
                                     w-full h-11
-                                    rounded-xl
-                                    border border-slate-200
-                                    bg-slate-50
+                                    rounded-2xl
+                                    bg-slate-100
                                     pl-4 pr-12
                                     text-sm
                                     focus:outline-none
-                                    focus:ring-4 focus:ring-blue-100
                                 "
                             />
 
                             <button
                                 onClick={handleSearch}
                                 className="
-                                    absolute right-3 top-1/2 -translate-y-1/2
-                                    text-slate-500 hover:text-blue-600
+                                    absolute right-3 top-1/2
+                                    -translate-y-1/2
                                 "
                             >
-                                <MagnifyingGlassIcon className="h-5 w-5" />
+                                <MagnifyingGlassIcon className="h-5 w-5 text-slate-500" />
                             </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* DESKTOP NAV */}
-            <nav className="hidden md:block bg-slate-50 border-t border-slate-100">
-
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-                    <div className="flex items-center gap-3 py-3">
-
-                        {/* CATEGORY DROPDOWN */}
-                        <div className="relative group py-2">
-
-                            <button
-                                className="
-                                    flex items-center gap-2
-                                    px-4 py-2.5
-                                    rounded-xl
-                                    bg-blue-600 text-white
-                                    shadow-sm
-                                    hover:bg-blue-700
-                                    transition-all
-                                "
-                            >
-                                <Bars3Icon className="h-5 w-5" />
-
-                                <span className="text-sm font-semibold">
-                                    Danh mục sản phẩm
-                                </span>
-                            </button>
-
-                            {/* DROPDOWN */}
-                            <div
-                                className="
-                                    absolute left-0 top-full mt-1
-                                    w-72
-                                    bg-white
-                                    border border-slate-200
-                                    rounded-2xl
-                                    shadow-2xl
-                                    overflow-hidden
-                                    z-50
-
-                                    opacity-0 invisible
-                                    translate-y-2
-
-                                    group-hover:opacity-100
-                                    group-hover:visible
-                                    group-hover:translate-y-0
-
-                                    transition-all duration-200
-                                "
-                            >
-                                <ul className="py-2">
-
-                                    {categories.length > 0 ? (
-                                        categories.map((c) => (
-                                            <li
-                                                key={c.id}
-                                                onClick={() =>
-                                                    nav(`/products?category_id=${c.id}`)
-                                                }
-                                                className="
-                                                    flex items-center justify-between
-                                                    px-5 py-3
-                                                    cursor-pointer
-                                                    hover:bg-blue-50
-                                                    transition
-                                                "
-                                            >
-                                                <span className="text-sm font-medium text-slate-700">
-                                                    {c.name}
-                                                </span>
-
-                                                <ChevronRightIcon className="h-4 w-4 text-slate-400" />
-                                            </li>
-                                        ))
-                                    ) : (
-                                        <li className="px-5 py-3 text-sm text-slate-500">
-                                            Không có danh mục
-                                        </li>
-                                    )}
-                                </ul>
-                            </div>
-                        </div>
-
-                        {/* MENU ITEMS */}
-                        <div className="flex items-center gap-1">
-
-                            {menus.map((m, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => nav(m.path)}
-                                    className="
-                                        px-4 py-2.5
-                                        rounded-xl
-                                        text-sm font-medium
-                                        text-slate-600
-                                        hover:bg-white
-                                        hover:text-blue-600
-                                        hover:shadow-sm
-                                        transition-all
-                                    "
-                                >
-                                    {m.label}
-                                </button>
-                            ))}
                         </div>
                     </div>
                 </div>
-            </nav>
+            )}
 
             {/* MOBILE DRAWER */}
             <div
@@ -531,9 +560,10 @@ const Header = () => {
                 <div
                     className={`
                         absolute left-0 top-0
-                        h-full w-80
+                        h-full w-[85%] max-w-sm
                         bg-white
                         shadow-2xl
+                        rounded-r-3xl
                         transition-transform duration-300
                         ${showMenu
                             ? "translate-x-0"
@@ -564,6 +594,51 @@ const Header = () => {
 
                     {/* CONTENT */}
                     <div className="p-4 overflow-y-auto h-[calc(100%-80px)]">
+
+                        {/* USER INFO */}
+                        {user && (
+                            <div className="mb-6 p-4 bg-slate-50 rounded-2xl">
+
+                                <div className="flex items-center gap-3">
+
+                                    <img
+                                        src={
+                                            user.avatar ||
+                                            "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                                        }
+                                        alt={user.full_name}
+                                        className="h-14 w-14 rounded-full object-cover"
+                                    />
+
+                                    <div>
+                                        <p className="font-semibold text-slate-800">
+                                            {user.full_name}
+                                        </p>
+
+                                        <p className="text-sm text-slate-500 capitalize">
+                                            {role}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        nav("/profile");
+                                        setShowMenu(false);
+                                    }}
+                                    className="
+                                        mt-4 w-full
+                                        h-11
+                                        rounded-xl
+                                        bg-blue-600
+                                        text-white
+                                        text-sm font-medium
+                                    "
+                                >
+                                    Xem hồ sơ
+                                </button>
+                            </div>
+                        )}
 
                         {/* CATEGORY */}
                         <div className="mb-6">
@@ -625,6 +700,44 @@ const Header = () => {
                                     </li>
                                 ))}
 
+                                {!user && (
+                                    <>
+                                        <li
+                                            onClick={() => {
+                                                nav("/login");
+                                                setShowMenu(false);
+                                            }}
+                                            className="
+                                                px-4 py-3
+                                                rounded-xl
+                                                text-slate-700
+                                                hover:bg-slate-100
+                                                transition
+                                                cursor-pointer
+                                            "
+                                        >
+                                            Đăng nhập
+                                        </li>
+
+                                        <li
+                                            onClick={() => {
+                                                nav("/register");
+                                                setShowMenu(false);
+                                            }}
+                                            className="
+                                                px-4 py-3
+                                                rounded-xl
+                                                bg-blue-600
+                                                text-white
+                                                transition
+                                                cursor-pointer
+                                            "
+                                        >
+                                            Đăng ký
+                                        </li>
+                                    </>
+                                )}
+
                                 {user && (
                                     <li
                                         onClick={() => {
@@ -650,7 +763,7 @@ const Header = () => {
                     </div>
                 </div>
             </div>
-        </header>
+        </>
     );
 };
 

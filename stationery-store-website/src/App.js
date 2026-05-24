@@ -3,7 +3,7 @@ import './App.css';
 import Home from './components/Home';
 import Header from './components/layout/Header';
 import Login from './components/Login';
-import { useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 import MyUserReducer from './reducers/MyUserReducer';
 import { MyCartContext, MyUserContext } from './configs/Contexts';
 import Cart from './components/Cart';
@@ -33,10 +33,26 @@ import PaymentCallback from './components/PaymentResult.js';
 import AddProduct from './components/staff/AddProduct.js';
 import VoucherDetail from './components/VoucherDetail.js';
 import NotFound from './components/NotFound.js';
+import { authApis, endpoint } from './configs/Apis.js';
+import cookie from "react-cookies";
 
 function App() {
   const [user, dispatch] = useReducer(MyUserReducer, null);
   const [cart, dispatchCart] = useReducer(CartReducer, 0);
+
+  const loadUserFromCookie = () => {
+    const token = cookie.load("token");
+    if (token) {
+      let res = authApis().get(endpoint["profile"]);
+      res.then((response) => {
+        dispatch({ type: "login", payload: response.data });
+      });
+    }
+  };
+
+  useEffect(() => {
+    loadUserFromCookie();
+  }, []);
 
   return (
     <MyUserContext.Provider value={[user, dispatch]}>

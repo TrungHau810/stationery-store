@@ -36,8 +36,9 @@ const Login = () => {
                 client_secret: process.env.REACT_APP_CLIENT_SECRET,
                 grant_type: "password",
             });
-
+            
             cookie.save("token", response.data.access_token);
+            cookie.save("refresh_token", response.data.refresh_token);
 
             const res = await authApis().get(endpoint["profile"]);
             dispatch({ type: "login", payload: res.data });
