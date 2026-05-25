@@ -1,24 +1,61 @@
-import { useContext, useState, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
+
 import { MyUserContext } from "../configs/Contexts";
-import { FaEdit, FaSave } from "react-icons/fa";
+
 import { authApis, endpoint } from "../configs/Apis";
+
 import Swal from "sweetalert2";
+
 import ChangePassword from "./ChangePassword";
 
+import {
+    FiCamera,
+    FiSave,
+    FiLock,
+    FiMail,
+    FiMapPin,
+    FiPhone,
+    FiUser,
+    FiShield,
+} from "react-icons/fi";
+
 export const roleLabels = {
-    customer: { label: "Khách hàng", color: "text-blue-600 font-semibold" },
-    staff: { label: "Nhân viên", color: "text-green-600 font-semibold" },
-    admin: { label: "Quản trị viên", color: "text-red-600 font-bold" },
-    manager: { label: "Quản lý cửa hàng", color: "text-purple-600 font-semibold" },
+    customer: {
+        label: "Khách hàng",
+        color: "bg-blue-100 text-blue-700",
+    },
+
+    staff: {
+        label: "Nhân viên",
+        color: "bg-green-100 text-green-700",
+    },
+
+    admin: {
+        label: "Quản trị viên",
+        color: "bg-red-100 text-red-700",
+    },
+
+    manager: {
+        label: "Quản lý cửa hàng",
+        color: "bg-purple-100 text-purple-700",
+    },
 };
 
 const Profile = () => {
     const [user, dispatch] = useContext(MyUserContext);
-    const [info, setInfo] = useState({ full_name: "", email: "", number_phone: "", address: "", avatar: null });
+
     const [loading, setLoading] = useState(false);
 
-    // Modal đổi mật khẩu
-    const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+    const [showChangePasswordModal, setShowChangePasswordModal] =
+        useState(false);
+
+    const [info, setInfo] = useState({
+        full_name: "",
+        email: "",
+        number_phone: "",
+        address: "",
+        avatar: null,
+    });
 
     useEffect(() => {
         if (user) {
@@ -35,137 +72,330 @@ const Profile = () => {
     const updateProfile = async () => {
         try {
             setLoading(true);
+
             const changedFields = {};
+
             Object.keys(info).forEach((key) => {
-                if (key === "avatar" && info.avatar instanceof File) changedFields[key] = info[key];
-                else if (info[key] !== user[key]) changedFields[key] = info[key];
+                if (
+                    key === "avatar" &&
+                    info.avatar instanceof File
+                ) {
+                    changedFields[key] = info[key];
+                } else if (info[key] !== user[key]) {
+                    changedFields[key] = info[key];
+                }
             });
 
             if (Object.keys(changedFields).length === 0) {
-                Swal.fire({ icon: "info", title: "Không có thay đổi", text: "Bạn chưa chỉnh sửa thông tin nào." });
+                Swal.fire({
+                    icon: "info",
+                    title: "Không có thay đổi",
+                    text: "Bạn chưa chỉnh sửa thông tin nào.",
+                    confirmButtonColor: "#2563EB",
+                });
+
                 return;
             }
 
             const formData = new FormData();
-            for (const key in changedFields) formData.append(key, changedFields[key]);
 
-            let response = await authApis().patch(endpoint["profile"], formData);
+            for (const key in changedFields) {
+                formData.append(key, changedFields[key]);
+            }
 
-            setInfo({ ...info, ...response.data });
-            dispatch({ type: "update", payload: response.data });
+            const response = await authApis().patch(
+                endpoint["profile"],
+                formData
+            );
 
-            Swal.fire({ icon: "success", title: "Cập nhật thành công", text: "Thông tin của bạn đã được cập nhật." });
+            setInfo({
+                ...info,
+                ...response.data,
+            });
+
+            dispatch({
+                type: "update",
+                payload: response.data,
+            });
+
+            Swal.fire({
+                icon: "success",
+                title: "Cập nhật thành công",
+                text: "Thông tin tài khoản đã được cập nhật.",
+                confirmButtonColor: "#2563EB",
+            });
         } catch (error) {
             console.error(error);
-            Swal.fire({ icon: "error", title: "Cập nhật thất bại", text: "Có lỗi xảy ra, vui lòng thử lại." });
+
+            Swal.fire({
+                icon: "error",
+                title: "Cập nhật thất bại",
+                text: "Có lỗi xảy ra. Vui lòng thử lại.",
+                confirmButtonColor: "#DC2626",
+            });
         } finally {
             setLoading(false);
         }
     };
 
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center max-w-md w-full">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                        Vui lòng đăng nhập
+                    </h2>
+
+                    <p className="text-gray-500">
+                        Bạn cần đăng nhập để xem hồ sơ cá nhân.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex justify-center items-center bg-gradient-to-br from-blue-50 to-blue-100 p-6">
-            {!user ? (
-                <p className="text-gray-500 text-center">Vui lòng đăng nhập để xem trang cá nhân.</p>
-            ) : (
-                <>
-                    <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl p-8 transition-all duration-300 hover:shadow-2xl">
-                        {/* Header */}
-                        <div className="flex flex-col items-center text-center mb-8">
+        <div className="min-h-screen bg-gray-50">
+            <div className="max-w-6xl mx-auto p-4 md:p-6">
+                {/* HERO */}
+                <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 shadow-xl mb-8">
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+
+                    <div className="relative z-10 p-8 md:p-10">
+                        <div className="flex flex-col md:flex-row md:items-center gap-8">
+                            {/* AVATAR */}
                             <div className="relative group">
                                 <img
-                                    src={info.avatar instanceof File ? URL.createObjectURL(info.avatar) : info.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
+                                    src={
+                                        info.avatar instanceof File
+                                            ? URL.createObjectURL(
+                                                info.avatar
+                                            )
+                                            : info.avatar ||
+                                            "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                                    }
                                     alt="Avatar"
-                                    className="w-28 h-28 rounded-full object-cover border-4 border-blue-500 shadow-md transition-transform duration-300 group-hover:scale-105"
+                                    className="w-32 h-32 rounded-3xl object-cover border-4 border-white/30 shadow-2xl"
                                 />
-                                <label className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition flex items-center justify-center">
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => setInfo({ ...info, avatar: e.target.files[0] })} />
-                                    <FaEdit size={16} />
+
+                                <label className="absolute bottom-3 right-3 w-11 h-11 rounded-2xl bg-white text-blue-600 shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition">
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) =>
+                                            setInfo({
+                                                ...info,
+                                                avatar:
+                                                    e.target.files[0],
+                                            })
+                                        }
+                                    />
+
+                                    <FiCamera />
                                 </label>
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-800 mt-4">{info.full_name || "Người dùng"}</h2>
-                            <p className="text-gray-500">{info.email}</p>
-                            <p className={`${roleLabels[user.role]?.color || "text-gray-500"}`}>{roleLabels[user.role]?.label || "Không xác định"}</p>
+
+                            {/* INFO */}
+                            <div className="text-white flex-1">
+                                <div className="flex flex-wrap items-center gap-3 mb-4">
+                                    <h1 className="text-4xl font-bold">
+                                        {info.full_name ||
+                                            "Người dùng"}
+                                    </h1>
+
+                                    <span
+                                        className={`px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md
+                                        ${roleLabels[user.role]
+                                                ?.color ||
+                                            "bg-white/20 text-white"
+                                            }`}
+                                    >
+                                        {roleLabels[user.role]
+                                            ?.label ||
+                                            "Không xác định"}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-white/90">
+                                    <FiMail />
+
+                                    <span>{info.email}</span>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
 
-                        {/* Form */}
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label>
-                                <input type="text" value={info.full_name} onChange={(e) => setInfo({ ...info, full_name: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
-                                <input type="text" value={user.username} readOnly className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input type="email" value={info.email} readOnly className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
-                                <input type="text" value={info.number_phone} onChange={(e) => setInfo({ ...info, number_phone: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
-                                <input type="text" value={info.address} onChange={(e) => setInfo({ ...info, address: e.target.value })} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200" />
+                {/* FORM */}
+                <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
+                    {/* HEADER */}
+                    <div className="p-6 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
+                                <FiUser className="text-blue-600 text-xl" />
                             </div>
 
-                            <div className="border-t pt-4 flex justify-center gap-4">
-                                {/* Nút Thay đổi mật khẩu */}
-                                <button
-                                    type="button"
-                                    onClick={() => setShowChangePasswordModal(true)}
-                                    className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl shadow-md hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center gap-2"
-                                >
-                                    <FaEdit className="w-4 h-4" />
-                                    Thay đổi mật khẩu
-                                </button>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">
+                                    Thông tin cá nhân
+                                </h2>
 
-                                {/* Nút Lưu thay đổi */}
-                                <button
-                                    onClick={updateProfile}
-                                    disabled={loading}
-                                    className={`flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-all duration-300 ${loading ? "cursor-not-allowed opacity-70" : ""
-                                        }`}
-                                >
-                                    {loading ? (
-                                        <svg
-                                            className="animate-spin h-5 w-5 text-white"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <circle
-                                                className="opacity-25"
-                                                cx="12"
-                                                cy="12"
-                                                r="10"
-                                                stroke="currentColor"
-                                                strokeWidth="4"
-                                            ></circle>
-                                            <path
-                                                className="opacity-75"
-                                                fill="currentColor"
-                                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                            ></path>
-                                        </svg>
-                                    ) : (
-                                        <FaSave className="transition-transform duration-200 hover:scale-110" />
-                                    )}
-                                    <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
-                                </button>
+                                <p className="text-gray-500 text-sm">
+                                    Cập nhật thông tin tài khoản
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Modal đổi mật khẩu */}
-                    {showChangePasswordModal && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                            <ChangePassword onClose={() => setShowChangePasswordModal(false)} />
+                    {/* BODY */}
+                    <div className="p-6 md:p-8">
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* FULL NAME */}
+                            <div>
+                                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FiUser />
+                                    Họ và tên
+                                </label>
+
+                                <input
+                                    type="text"
+                                    value={info.full_name}
+                                    onChange={(e) =>
+                                        setInfo({
+                                            ...info,
+                                            full_name:
+                                                e.target.value,
+                                        })
+                                    }
+                                    className="w-full h-14 rounded-2xl border border-gray-200 bg-gray-50 px-5 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                />
+                            </div>
+
+                            {/* USERNAME */}
+                            <div>
+                                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FiShield />
+                                    Tên đăng nhập
+                                </label>
+
+                                <input
+                                    type="text"
+                                    value={user.username}
+                                    readOnly
+                                    className="w-full h-14 rounded-2xl border border-gray-200 bg-gray-100 px-5 text-gray-500"
+                                />
+                            </div>
+
+                            {/* EMAIL */}
+                            <div>
+                                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FiMail />
+                                    Email
+                                </label>
+
+                                <input
+                                    type="email"
+                                    value={info.email}
+                                    readOnly
+                                    className="w-full h-14 rounded-2xl border border-gray-200 bg-gray-100 px-5 text-gray-500"
+                                />
+                            </div>
+
+                            {/* PHONE */}
+                            <div>
+                                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FiPhone />
+                                    Số điện thoại
+                                </label>
+
+                                <input
+                                    type="text"
+                                    value={info.number_phone}
+                                    onChange={(e) =>
+                                        setInfo({
+                                            ...info,
+                                            number_phone:
+                                                e.target.value,
+                                        })
+                                    }
+                                    className="w-full h-14 rounded-2xl border border-gray-200 bg-gray-50 px-5 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                />
+                            </div>
+
+                            {/* ADDRESS */}
+                            <div className="md:col-span-2">
+                                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FiMapPin />
+                                    Địa chỉ
+                                </label>
+
+                                <input
+                                    type="text"
+                                    value={info.address}
+                                    onChange={(e) =>
+                                        setInfo({
+                                            ...info,
+                                            address:
+                                                e.target.value,
+                                        })
+                                    }
+                                    className="w-full h-14 rounded-2xl border border-gray-200 bg-gray-50 px-5 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                />
+                            </div>
                         </div>
-                    )}
-                </>
+
+                        {/* ACTIONS */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-end mt-8">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowChangePasswordModal(
+                                        true
+                                    )
+                                }
+                                className="h-14 px-6 rounded-2xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition flex items-center justify-center gap-2"
+                            >
+                                <FiLock />
+
+                                Đổi mật khẩu
+                            </button>
+
+                            <button
+                                onClick={updateProfile}
+                                disabled={loading}
+                                className={`h-14 px-8 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-200 transition flex items-center justify-center gap-3
+                                ${loading
+                                        ? "opacity-70 cursor-not-allowed"
+                                        : "hover:bg-blue-700"
+                                    }`}
+                            >
+                                {loading ? (
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <FiSave />
+                                )}
+
+                                {loading
+                                    ? "Đang lưu..."
+                                    : "Lưu thay đổi"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* MODAL */}
+            {showChangePasswordModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="w-full max-w-lg">
+                        <ChangePassword
+                            onClose={() =>
+                                setShowChangePasswordModal(false)
+                            }
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );

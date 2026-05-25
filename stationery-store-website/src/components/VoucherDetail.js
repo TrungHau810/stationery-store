@@ -1,18 +1,32 @@
 import { useParams } from "react-router-dom";
 import Apis, { endpoint } from "../configs/Apis";
 import { useEffect, useState } from "react";
+
 import ProductCard from "./layout/ProductCard";
-import { FiCopy } from "react-icons/fi";
+
+import {
+    FiCopy,
+    FiCalendar,
+    FiClock,
+    FiPercent,
+} from "react-icons/fi";
+
+import { HiOutlineTicket } from "react-icons/hi";
+
+import toast from "react-hot-toast";
 
 const VoucherDetail = () => {
     const { id } = useParams();
+
     const [detail, setDetail] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const fetchVoucherDetail = async () => {
         try {
             setLoading(true);
+
             const res = await Apis.get(endpoint["discount_detail"](id));
+
             setDetail(res.data);
         } catch (err) {
             console.error("Lỗi load voucher:", err);
@@ -28,8 +42,11 @@ const VoucherDetail = () => {
 
     const getStatus = (v) => {
         const now = new Date();
+
         if (now < new Date(v.start_date)) return "coming";
+
         if (now > new Date(v.end_date)) return "expired";
+
         return "active";
     };
 
@@ -45,103 +62,153 @@ const VoucherDetail = () => {
         coming: "Sắp áp dụng",
     };
 
-    const copyCode = (code) => {
-        navigator.clipboard.writeText(code);
-        alert(`Đã sao chép mã: ${code}`);
+    const copyCode = async (code) => {
+        await navigator.clipboard.writeText(code);
+
+        toast.success(`Đã sao chép mã ${code}`);
     };
 
+    if (loading) {
+        return (
+            <div className="py-20">
+                <p className="text-center text-gray-500">
+                    Đang tải voucher...
+                </p>
+            </div>
+        );
+    }
+
+    if (!detail) {
+        return (
+            <div className="py-20 text-center text-gray-500">
+                Không tìm thấy voucher
+            </div>
+        );
+    }
+
     return (
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+                {/* HERO */}
+                <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-[32px] shadow-xl">
+                    <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
 
-            {loading ? (
-                <p className="text-gray-500 text-center py-10">
-                    Đang tải dữ liệu...
-                </p>
-            ) : detail ? (
-                <>
-                    {/* HEADER */}
-                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg text-center mb-6">
-                        <h2 className="text-3xl font-bold mb-1">
-                            Chi tiết Voucher
-                        </h2>
-                        <p className="text-sm opacity-90">
-                            Thông tin ưu đãi dành cho bạn
-                        </p>
+                    <div className="relative z-10 p-8 md:p-10 text-white">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                            <div>
+                                <div className="flex items-center gap-3 mb-5">
+                                    <div className="w-16 h-16 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                        <HiOutlineTicket className="text-4xl" />
+                                    </div>
+
+                                    <div>
+                                        <p className="text-white/80 text-sm">
+                                            Voucher giảm giá
+                                        </p>
+
+                                        <h1 className="text-4xl font-bold">
+                                            -{detail.discount}%
+                                        </h1>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="bg-white/15 backdrop-blur-md rounded-2xl px-4 py-3 flex items-center gap-3">
+                                        <FiPercent />
+
+                                        <span className="font-semibold tracking-wide">
+                                            {detail.code}
+                                        </span>
+
+                                        <button
+                                            onClick={() =>
+                                                copyCode(detail.code)
+                                            }
+                                            className="hover:text-cyan-200 transition"
+                                        >
+                                            <FiCopy />
+                                        </button>
+                                    </div>
+
+                                    <span
+                                        className={`px-4 py-2 rounded-full text-sm font-medium
+                                        ${statusStyle[
+                                            getStatus(detail)
+                                            ]
+                                            }`}
+                                    >
+                                        {
+                                            statusText[
+                                            getStatus(detail)
+                                            ]
+                                        }
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    {/* VOUCHER INFO */}
-                    <div className="bg-white p-6 rounded-2xl shadow-md mb-6">
+                {/* INFO */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-xl font-bold text-gray-800 mb-6">
+                        Thông tin voucher
+                    </h2>
 
-                        {/* TOP ROW */}
-                        <div className="flex flex-wrap items-center justify-between mb-4">
+                    <div className="grid md:grid-cols-2 gap-5">
+                        <div className="bg-gray-50 rounded-2xl p-5">
+                            <div className="flex items-center gap-3 mb-3 text-gray-700">
+                                <FiCalendar />
 
-                            <div className="flex items-center gap-3">
-
-                                <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-4 py-2 rounded-full">
-                                    {detail.code}
+                                <span className="font-semibold">
+                                    Ngày bắt đầu
                                 </span>
-
-                                <button
-                                    onClick={() => copyCode(detail.code)}
-                                    className="text-gray-500 hover:text-blue-600"
-                                >
-                                    <FiCopy />
-                                </button>
-
                             </div>
 
-                            <span className="text-xl font-bold text-red-500">
-                                -{detail.discount}%
-                            </span>
-
-                        </div>
-
-                        {/* STATUS */}
-                        <div className="mb-4">
-                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusStyle[getStatus(detail)]}`}>
-                                {statusText[getStatus(detail)]}
-                            </span>
-                        </div>
-
-                        {/* DATE */}
-                        <div className="text-sm text-gray-600 space-y-1">
-                            <p>
-                                <span className="font-semibold">Bắt đầu:</span>{" "}
-                                {new Date(detail.start_date).toLocaleString("vi-VN")}
+                            <p className="text-gray-600">
+                                {new Date(
+                                    detail.start_date
+                                ).toLocaleString("vi-VN")}
                             </p>
-                            <p>
-                                <span className="font-semibold">Kết thúc:</span>{" "}
-                                {new Date(detail.end_date).toLocaleString("vi-VN")}
+                        </div>
+
+                        <div className="bg-gray-50 rounded-2xl p-5">
+                            <div className="flex items-center gap-3 mb-3 text-gray-700">
+                                <FiClock />
+
+                                <span className="font-semibold">
+                                    Ngày kết thúc
+                                </span>
+                            </div>
+
+                            <p className="text-gray-600">
+                                {new Date(
+                                    detail.end_date
+                                ).toLocaleString("vi-VN")}
                             </p>
                         </div>
                     </div>
+                </div>
 
-                    {/* PRODUCTS */}
-                    <div className="bg-white p-6 rounded-2xl shadow-md">
+                {/* PRODUCTS */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                        Sản phẩm áp dụng
+                    </h2>
 
-                        <h3 className="text-xl font-semibold mb-4 text-gray-800">
-                            Sản phẩm áp dụng
-                        </h3>
-
-                        {detail.products && detail.products.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {detail.products.map((p) => (
-                                    <ProductCard key={p.id} item={p} />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-gray-500">
-                                Không có sản phẩm áp dụng
-                            </div>
-                        )}
-
-                    </div>
-                </>
-            ) : (
-                <p className="text-gray-500 text-center">
-                    Không tìm thấy voucher
-                </p>
-            )}
+                    {detail.products?.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+                            {detail.products.map((p) => (
+                                <ProductCard key={p.id} item={p} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-20 text-gray-400">
+                            Không có sản phẩm áp dụng
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

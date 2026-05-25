@@ -1,5 +1,6 @@
 import { FaFacebookF, FaInstagram, FaTwitter } from "react-icons/fa";
 import { FiMail, FiPhone, FiMapPin } from "react-icons/fi";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
     return (
@@ -54,13 +55,13 @@ const Footer = () => {
                                 { label: "Điều khoản sử dụng", link: "/terms" },
                             ].map((item, i) => (
                                 <li key={i}>
-                                    <a
-                                        href={item.link}
+                                    <Link
+                                        to={item.link}
                                         className="hover:text-white transition flex items-center gap-2"
                                     >
                                         <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
                                         {item.label}
-                                    </a>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -105,9 +106,15 @@ const Footer = () => {
                     </p>
 
                     <div className="flex gap-4 mt-2 md:mt-0">
-                        <a href="/terms" className="hover:text-white">Terms</a>
-                        <a href="/policy" className="hover:text-white">Privacy</a>
-                        <a href="/support" className="hover:text-white">Support</a>
+                        <Link to="/terms" className="hover:text-white">
+                            Terms
+                        </Link>
+                        <Link to="/policy" className="hover:text-white">
+                            Privacy
+                        </Link>
+                        <Link to="/support" className="hover:text-white">
+                            Support
+                        </Link>
                     </div>
 
                 </div>

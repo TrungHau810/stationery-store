@@ -35,6 +35,8 @@ import VoucherDetail from './components/VoucherDetail.js';
 import NotFound from './components/NotFound.js';
 import { authApis, endpoint } from './configs/Apis.js';
 import cookie from "react-cookies";
+import { Toaster } from 'react-hot-toast';
+import AboutMe from './components/AboutMe.js';
 
 function App() {
   const [user, dispatch] = useReducer(MyUserReducer, null);
@@ -59,6 +61,7 @@ function App() {
       <MyCartContext.Provider value={[cart, dispatchCart]}>
         <BrowserRouter>
           <Header />
+          <Toaster position="top-right" />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path='/login' element={<Login />} />
@@ -67,6 +70,8 @@ function App() {
             <Route path='/reset-password' element={<ResetPassword />} />
             <Route path='/products' element={<ProductList />} />
             <Route path='/product/:id' element={<ProductDetail />} />
+
+            <Route path='/about' element={<AboutMe />} />
 
             {/* Customer routes */}
             {(user?.role === "customer" || !user) && (
